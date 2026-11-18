@@ -1186,8 +1186,8 @@ function classifyUrl(raw){
     return {kind:'bad',url:v,msg:'그건 구글 시트 주소입니다. 여기에는 Apps Script 웹 앱 주소(.../exec)를 넣어 주세요. 시트에서 확장 프로그램 → Apps Script → 배포 → 웹 앱으로 배포하면 .../exec 주소가 나옵니다.'};
   if(/script\.googleusercontent\.com/i.test(v))
     return {kind:'bad',url:v,msg:'브라우저 주소창에 보이는 임시 주소가 아니라, 배포할 때 받은 .../exec 주소를 넣어 주세요.'};
-  var m=v.match(/^https?:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_\-]+)\/exec(?:\?.*)?$/i);
-  if(m) return {kind:'ok',url:'https://script.google.com/macros/s/'+m[1]+'/exec',msg:''};
+  var m=v.match(/^https?:\/\/script\.google\.com\/(?:(a\/macros\/[A-Za-z0-9._\-]+)|macros)\/s\/([A-Za-z0-9_\-]+)\/exec(?:\?.*)?$/i);
+  if(m) return {kind:'ok',url:'https://script.google.com/'+(m[1]?m[1]+'/':'macros/')+'s/'+m[2]+'/exec',msg:''};
   if(/script\.google\.com\/macros\/s\//i.test(v)){
     if(/\/dev\b/i.test(v)) return {kind:'bad',url:v,msg:'테스트용 .../dev 주소입니다. 배포 후 받은 .../exec 주소를 넣어 주세요.'};
     return {kind:'bad',url:v,msg:'주소가 .../exec 로 끝나야 합니다. 복사한 주소를 끝까지 붙여 넣어 주세요.'};
