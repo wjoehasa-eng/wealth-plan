@@ -470,7 +470,11 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <button class="btn" id="btnDemo">예시 데이터</button>
         <button class="btn" id="btnReset">전체 삭제</button>
       </div>
+      <div class="btn-row hidden" id="restoreRow" style="margin-top:8px">
+        <button class="btn" id="btnRestore">직전 상태 되돌리기</button>
+      </div>
       <div class="note" style="margin-top:8px" id="dataInfo"></div>
+      <div class="note" id="prevInfo" style="margin-top:6px"></div>
     </div>
 
     <div class="sec">
@@ -499,6 +503,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
+var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
 var APP_VERSION='2.0.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
@@ -971,6 +976,7 @@ function renderAll(){
       + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 투입 '+state.monthly.length+'개월 · 종목 '+state.stocks.length+'개';
   }
   refreshSyncInfo();
+  if(typeof renderPrevInfo==='function') renderPrevInfo();
 }
 
 /* ----------------------------------------------------------- 이벤트: 탭 */
@@ -1325,6 +1331,7 @@ function stateFromRemote(d){
 
 /* 백업(JSON) 불러오기 — 시트로는 자동 저장하지 않는다 */
 function applyRemote(d){
+  savePrev('백업 파일 불러오기');
   state=stateFromRemote(d);
   persistNow(d.savedAt?String(d.savedAt):null);
   sync.dirty=false;
@@ -1389,6 +1396,7 @@ function pullFromSheet(opts){
       if(autoSync) scheduleAutoPush(600);
       return {applied:false, reason:'local-dirty'};
     }
+    savePrev('시트에서 불러오기');
     state=stateFromRemote(d);
     sync.remoteSavedAt=remSaved;
     sync.dirty=false; sync.error=''; sync.lastOkAt=Date.now();
@@ -1644,6 +1652,40 @@ window.__wp={
   syncInfo:function(){ return {url:sheetUrl(),dirty:sync.dirty,remoteSavedAt:sync.remoteSavedAt,lastPullAt:sync.lastPullAt,lastPushAt:sync.lastPushAt,autoSync:autoSync,error:sync.error}; }
 };
 
+/* ----------------------------------------------------------- 덮어쓰기 직전 상태 보관 */
+function savePrev(label){
+  try{
+    if(!state || isBlank(state) || (state.meta && state.meta.demo)) return;
+    localStorage.setItem(LS_PREV, JSON.stringify({at:new Date().toISOString(), label:label||'', state:state}));
+  }catch(e){}
+  renderPrevInfo();
+}
+function readPrev(){
+  try{ var raw=localStorage.getItem(LS_PREV); if(!raw) return null; var o=JSON.parse(raw); return (o&&o.state)?o:null; }catch(e){ return null; }
+}
+function renderPrevInfo(){
+  var row=$('#restoreRow'), info=$('#prevInfo');
+  var prev=readPrev();
+  if(row) row.classList.toggle('hidden',!prev);
+  if(info){
+    info.textContent = prev
+      ? ('직전 상태 백업 '+new Date(prev.at).toLocaleString('ko-KR')+(prev.label?(' · '+prev.label):'')+' · 상환 '+((prev.state.loans||[]).length)+' · 일정 '+((prev.state.schedule||[]).length)+' · 투입 '+((prev.state.monthly||[]).length)+' · 종목 '+((prev.state.stocks||[]).length))
+      : '';
+  }
+}
+$('#btnRestore').addEventListener('click',function(){
+  var prev=readPrev();
+  if(!prev){ toast('되돌릴 상태가 없습니다'); return; }
+  if(!window.confirm('덮어쓰기 직전 상태('+new Date(prev.at).toLocaleString('ko-KR')+')로 되돌릴까요? 지금 내용은 그 자리에 백업됩니다.')) return;
+  var keep=JSON.parse(JSON.stringify({at:new Date().toISOString(),label:'되돌리기 전',state:state}));
+  state=normalize(prev.state);
+  persistNow(null);
+  try{ localStorage.setItem(LS_PREV,JSON.stringify(keep)); }catch(e){}
+  renderAll(); renderPrevInfo();
+  toast('직전 상태로 되돌렸습니다');
+  markChanged();
+});
+
 /* ----------------------------------------------------------- 백업 */
 $('#btnExport').addEventListener('click',function(){
   var payload=buildPayload(new Date().toISOString());
@@ -1706,17 +1748,20 @@ function demoState(){
   return s;
 }
 $('#btnDemo').addEventListener('click',function(){
+  savePrev('예시 데이터 적용 전');
   state=demoState(); commit(); closeSettings(); toast('예시 데이터를 불러왔습니다');
 });
 $('#btnStartSettings').addEventListener('click',openSettings);
 $('#btnStartDemo').addEventListener('click',function(){
+  savePrev('예시 데이터 적용 전');
   state=demoState(); commit(); toast('예시 데이터를 불러왔습니다');
 });
 $('#btnDemoClear').addEventListener('click',function(){
   state=freshState(); commit(); toast('예시 데이터를 지웠습니다');
 });
 $('#btnReset').addEventListener('click',function(){
-  if(!window.confirm('이 기기에 저장된 모든 입력값을 지웁니다. 계속할까요?')) return;
+  if(!window.confirm('이 기기에 저장된 모든 입력값을 지웁니다. 계속할까요? (직전 상태는 백업해 둡니다)')) return;
+  savePrev('전체 삭제 전');
   state=freshState(); commit(); closeSettings(); toast('모두 지웠습니다');
 });
 
