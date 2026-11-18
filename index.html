@@ -1,11 +1,13 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA)
+  입주 자금관리 — 설치형 웹앱(PWA) v2.0.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
-    Apps Script 웹 앱 URL을 넣고 '시트에서 불러오기'.
--->
+    Apps Script 웹 앱(.../exec) 주소를 넣고 '연결하고 불러오기'.
+  · v2: 빈 상태 덮어쓰기 차단 · 연결 시 자동 Pull · 변경 시 1초 뒤 자동 Push ·
+        앱 열기/포커스 복귀/20초 주기 자동 Pull · URL 검증 안내
+--
 <html lang="ko">
 <head>
 <meta charset="utf-8">
@@ -65,6 +67,12 @@ h1,h2,h3{margin:0;font-weight:700}
 .dot{width:9px;height:9px;border-radius:50%;background:var(--line);display:inline-block;transition:.2s}
 .dot.on{background:var(--ok);box-shadow:0 0 0 3px var(--ok-soft)}
 .dot.err{background:var(--bad);box-shadow:0 0 0 3px var(--bad-soft)}
+.dot.wait{background:var(--warn);box-shadow:0 0 0 3px var(--warn-soft);animation:dotpulse 1.1s ease-in-out infinite}
+@keyframes dotpulse{0%,100%{opacity:1}50%{opacity:.3}}
+#syncDot{cursor:pointer}
+.url-hint{font-size:11.5px;line-height:1.45;margin-top:-2px;display:none}
+.url-hint.bad{color:var(--bad)}
+.url-hint.good{color:var(--ok)}
 .icon-btn{border:1px solid var(--line);background:var(--card);width:40px;height:40px;border-radius:12px;
   display:grid;place-items:center;font-size:17px;line-height:1}
 .icon-btn:active{transform:scale(.96)}
@@ -207,6 +215,11 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 .toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);
   padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:88vw;text-align:center}
 .toast.show{opacity:1;transform:translate(-50%,0)}
+.sync-flash{position:fixed;left:50%;top:58px;transform:translate(-50%,-8px);z-index:65;background:var(--ink);color:var(--bg);
+  font-size:12px;font-weight:700;padding:7px 13px;border-radius:99px;opacity:0;pointer-events:none;transition:.2s;max-width:88vw;text-align:center}
+.sync-flash.show{opacity:1;transform:translate(-50%,0)}
+.sync-flash.ok{background:var(--ok);color:#fff}
+.sync-flash.err{background:var(--bad);color:#fff}
 .spacer{height:4px}
 </style>
 </head>
@@ -410,17 +423,34 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       <h3>구글 시트 연결</h3>
       <div class="form">
         <div class="full"><label>Apps Script 웹 앱 URL</label>
-          <input id="cfScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" spellcheck="false">
+          <input id="cfScriptUrl" placeholder="https://script.google.com/macros/s/.../exec" autocomplete="off" autocapitalize="off" spellcheck="false">
+        </div>
+        <div class="full url-hint" id="urlHint"></div>
+        <div class="full btn-row">
+          <button class="btn primary" id="btnSheetConnect">연결하고 불러오기</button>
         </div>
         <div class="full btn-row">
-          <button class="btn" id="btnSheetLoad">시트에서 불러오기</button>
-          <button class="btn primary" id="btnSheetSave">시트에 저장</button>
+          <button class="btn" id="btnSheetLoad">시트에서 다시 불러오기</button>
+          <button class="btn" id="btnSheetSave">이 기기 데이터를 시트로 저장</button>
+        </div>
+        <div class="full" style="display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap">
+          <label style="display:flex;align-items:center;gap:8px;font-size:13px;font-weight:600;color:var(--ink2)">
+            <input type="checkbox" id="cfAutoSync" style="width:20px;height:20px" checked>
+            자동 동기화 (변경하면 자동 저장 · 열면 자동 불러오기)
+          </label>
+          <button class="mini" id="btnSheetDisconnect">연결 해제</button>
         </div>
       </div>
       <div class="status" id="syncStatus"></div>
-      <div class="note" style="margin-top:6px">
+      <div class="note" id="syncInfo" style="margin-top:4px"></div>
+      <div class="note" style="margin-top:8px">
         시트를 처음 준비할 때: 구글 시트 → 확장 프로그램 → Apps Script 에 <code>apps-script/Code.gs</code>를 붙여넣고,
-        배포 → 새 배포 → 웹 앱(실행: 나 / 액세스: 모든 사용자)으로 배포한 뒤 그 URL을 위에 넣습니다.
+        배포 → 새 배포 → 웹 앱(실행: 나 / 액세스: 모든 사용자)으로 배포한 뒤 나오는 <code>.../exec</code> 주소를 위에 넣습니다.
+        <b>구글 시트 주소(docs.google.com/spreadsheets/…)를 넣으면 연결되지 않습니다.</b>
+      </div>
+      <div class="note" style="margin-top:8px">
+        입력한 값이 모두 0인 빈 상태에서는 시트를 덮어쓰지 않습니다(자료 보호). 시트 자료가 사라졌다면
+        구글 시트의 <b>파일 → 버전 기록</b>에서 이전 버전으로 되돌릴 수 있습니다.
       </div>
     </div>
 
@@ -455,12 +485,13 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v2.0 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
 
 <div class="toast" id="toast"></div>
+<div class="sync-flash" id="syncFlash" role="status" aria-live="polite"></div>
 
 <script>
 (function(){
@@ -468,6 +499,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
+var APP_VERSION='2.0.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -566,10 +598,17 @@ function loadState(){
 var saveTimer=null;
 function saveState(){
   clearTimeout(saveTimer);
-  saveTimer=setTimeout(function(){
-    try{ state.meta.updatedAt=new Date().toISOString(); localStorage.setItem(LS_STATE,JSON.stringify(state)); }catch(e){}
-  },120);
+  saveTimer=setTimeout(function(){ persistNow(new Date().toISOString()); },120);
 }
+/* ts 를 넘기면 그 시각을 '데이터 기준 시각'으로 삼고(시트와 같게 맞출 때), 없으면 비어 있을 때만 채운다. */
+function persistNow(ts){
+  clearTimeout(saveTimer); saveTimer=null;
+  if(ts) state.meta.updatedAt=ts; else if(!state.meta.updatedAt) state.meta.updatedAt=new Date().toISOString();
+  try{ localStorage.setItem(LS_STATE,JSON.stringify(state)); }catch(e){}
+}
+/* 데이터를 바꾸는 모든 곳은 이 두 함수를 통과한다: 화면 → 기기 저장 → 1초 뒤 시트 자동 저장 */
+function commit(){ saveState(); renderAll(); markChanged(); }
+function commitSummary(){ saveState(); renderSummary(); markChanged(); }
 
 /* ----------------------------------------------------------- 계산 */
 function sortByDate(a,b){ return (parseDate(a.date)||0)-(parseDate(b.date)||0); }
@@ -931,6 +970,7 @@ function renderAll(){
     info.textContent = (state.meta.updatedAt?('마지막 저장 '+new Date(state.meta.updatedAt).toLocaleString('ko-KR')):'저장 기록 없음')
       + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 투입 '+state.monthly.length+'개월 · 종목 '+state.stocks.length+'개';
   }
+  refreshSyncInfo();
 }
 
 /* ----------------------------------------------------------- 이벤트: 탭 */
@@ -963,7 +1003,7 @@ function simHandler(id,key){
     if(key==='monthly') state.settings.monthlyInvestSim=v;
     if(key==='profit') state.settings.stockProfitSim=v;
     if(key==='loan') state.settings.newLoanAtMoveIn=v;
-    saveState(); renderSummary();
+    commitSummary();
   });
 }
 simHandler('#simMonthly','monthly');
@@ -971,7 +1011,7 @@ simHandler('#simProfit','profit');
 simHandler('#simLoan','loan');
 $('#btnSimReset').addEventListener('click',function(){
   state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null; state.settings.newLoanAtMoveIn=0;
-  saveState(); renderSummary(); toast('시뮬레이터를 초기화했습니다');
+  commitSummary(); toast('시뮬레이터를 초기화했습니다');
 });
 
 /* ----------------------------------------------------------- 납입 일정 */
@@ -986,14 +1026,14 @@ $('#scSave').addEventListener('click',function(){
     status:$('#scStatus').value, memo:($('#scMemo').value||'').trim()});
   $('#scLabel').value=''; $('#scDate').value=''; $('#scAmount').value=''; $('#scMemo').value=''; $('#scStatus').value='미정';
   $('#scheduleForm').classList.add('hidden');
-  saveState(); renderSummary(); toast('일정을 추가했습니다');
+  commitSummary(); toast('일정을 추가했습니다');
 });
 $('#scheduleList').addEventListener('click',function(e){
   var t=e.target.closest('[data-sc-toggle]');
   if(t){
     var id=t.getAttribute('data-sc-toggle');
     var row=state.schedule.filter(function(x){return x.id===id;})[0];
-    if(row){ row.status = row.status==='완료'?'미정':'완료'; saveState(); renderSummary(); }
+    if(row){ row.status = row.status==='완료'?'미정':'완료'; commitSummary(); }
     return;
   }
 });
@@ -1006,7 +1046,7 @@ function handleDelete(btn){
   if(idx<0) return;
   if(!window.confirm('이 항목을 삭제할까요?')) return;
   arr.splice(idx,1);
-  saveState(); renderAll(); toast('삭제했습니다');
+  commit(); toast('삭제했습니다');
 }
 $$('.view').forEach(function(v){ v.addEventListener('click',function(e){
   var d=e.target.closest('[data-del]');
@@ -1045,7 +1085,7 @@ $('#lnSave').addEventListener('click',function(){
   state.settings.loanBalance=bal;
   $('#lnPrincipal').value=''; $('#lnInterest').value=''; $('#lnBalance').value=''; $('#lnMemo').value=''; $('#lnBalance').dataset.touched='';
   $('#loanForm').classList.add('hidden');
-  saveState(); renderAll(); toast('상환 내역을 추가했습니다');
+  commit(); toast('상환 내역을 추가했습니다');
 });
 
 /* ----------------------------------------------------------- 월별 투입 */
@@ -1061,7 +1101,7 @@ $('#moSave').addEventListener('click',function(){
   state.monthly.push({id:uid(), month:m, amount:a, kind:$('#moKind').value, memo:($('#moMemo').value||'').trim()});
   $('#moAmount').value=''; $('#moMemo').value='';
   $('#monthlyForm').classList.add('hidden');
-  saveState(); renderAll(); toast('투입 기록을 추가했습니다');
+  commit(); toast('투입 기록을 추가했습니다');
 });
 
 /* ----------------------------------------------------------- 주식 */
@@ -1076,7 +1116,7 @@ $('#stSave').addEventListener('click',function(){
   state.stocks.push({id:uid(), name:name, qty:q, avgPrice:num($('#stAvg').value), currentPrice:cur, memo:($('#stMemo').value||'').trim()});
   $('#stName').value=''; $('#stQty').value=''; $('#stAvg').value=''; $('#stCur').value=''; $('#stMemo').value='';
   $('#stockForm').classList.add('hidden');
-  saveState(); renderAll(); toast('종목을 추가했습니다');
+  commit(); toast('종목을 추가했습니다');
 });
 
 /* ----------------------------------------------------------- 설정 모달 */
@@ -1090,14 +1130,20 @@ function openSettings(){
   $('#cfMonthly').value=num(s.monthlyInvest)?comma(s.monthlyInvest):'';
   $('#cfRepay').checked=!!s.repayExistingLoan;
   try{ $('#cfScriptUrl').value=localStorage.getItem(LS_URL)||''; }catch(e){}
+  var cb=$('#cfAutoSync'); if(cb) cb.checked=autoSync;
+  var info=classifyUrl($('#cfScriptUrl').value);
+  if(info.kind==='bad') setUrlHint(info.msg,'bad'); else setUrlHint('',null);
+  refreshSyncInfo();
   $('#settingsModal').classList.add('open');
   document.body.style.overflow='hidden';
 }
 function closeSettings(){
   $('#settingsModal').classList.remove('open');
   document.body.style.overflow='';
+  maybeAutoPull(1000);
 }
 $('#btnSettings').addEventListener('click',openSettings);
+$('#syncDot').addEventListener('click',function(){ openSettings(); });
 $('#btnCloseSettings').addEventListener('click',closeSettings);
 $('#settingsModal').addEventListener('click',function(e){ if(e.target===$('#settingsModal')) closeSettings(); });
 $('#btnSaveSettings').addEventListener('click',function(){
@@ -1110,34 +1156,135 @@ $('#btnSaveSettings').addEventListener('click',function(){
   s.monthlyInvest=num($('#cfMonthly').value);
   s.monthlyInvestSim=null;
   s.repayExistingLoan=$('#cfRepay').checked;
-  saveState(); renderAll(); toast('기본 값을 저장했습니다');
+  commit(); toast('기본 값을 저장했습니다');
 });
 
-/* ----------------------------------------------------------- 구글 시트 연결 */
-function sheetUrl(){ try{ return (localStorage.getItem(LS_URL)||'').trim(); }catch(e){ return ''; } }
-function setSync(msg, cls){
-  var el=$('#syncStatus');
-  el.textContent=msg;
-  el.className='status'+(cls?(' '+cls):'');
-  var dot=$('#syncDot');
-  dot.className='dot'+(cls==='ok'?' on':(cls==='err'?' err':''));
+/* ----------------------------------------------------------- 구글 시트 연결 · 자동 동기화 */
+var SYNC_POLL_MS=20000, SYNC_PUSH_DELAY=1000, SYNC_TICK_MS=5000;
+var sync={url:'',lastPullAt:0,lastPushAt:0,lastOkAt:0,remoteSavedAt:null,dirty:false,
+  pushing:null,pulling:null,pushTimer:null,tickTimer:null,lastAttemptAt:0,lastMsg:'',error:''};
+var autoSync=true;
+try{ if(localStorage.getItem('wealthplan.autoSync.v1')==='0') autoSync=false; }catch(e){}
+
+function pad2n(v){ return (v<10?'0':'')+v; }
+function timeLabel(ms){ var d=ms?new Date(ms):new Date(); return pad2n(d.getHours())+':'+pad2n(d.getMinutes())+':'+pad2n(d.getSeconds()); }
+function stampLabel(iso){ if(!iso) return '—'; var d=new Date(iso); if(isNaN(d.getTime())) return String(iso); return pad2n(d.getMonth()+1)+'.'+pad2n(d.getDate())+' '+pad2n(d.getHours())+':'+pad2n(d.getMinutes()); }
+function sheetUrl(){ try{ return String(localStorage.getItem(LS_URL)||'').trim(); }catch(e){ return ''; } }
+function storeUrl(u){ try{ if(u) localStorage.setItem(LS_URL,u); else localStorage.removeItem(LS_URL); }catch(e){} }
+
+/* URL 판별 — 시트 주소·임시 주소를 넣으면 그 자리에서 바로 안내한다 */
+function classifyUrl(raw){
+  var v=String(raw==null?'':raw).trim().replace(/\s+/g,'');
+  if(!v) return {kind:'empty',url:'',msg:''};
+  if(/docs\.google\.com\/spreadsheets/i.test(v)||/drive\.google\.com/i.test(v))
+    return {kind:'bad',url:v,msg:'그건 구글 시트 주소입니다. 여기에는 Apps Script 웹 앱 주소(.../exec)를 넣어 주세요. 시트에서 확장 프로그램 → Apps Script → 배포 → 웹 앱으로 배포하면 .../exec 주소가 나옵니다.'};
+  if(/script\.googleusercontent\.com/i.test(v))
+    return {kind:'bad',url:v,msg:'브라우저 주소창에 보이는 임시 주소가 아니라, 배포할 때 받은 .../exec 주소를 넣어 주세요.'};
+  var m=v.match(/^https?:\/\/script\.google\.com\/macros\/s\/([A-Za-z0-9_\-]+)\/exec(?:\?.*)?$/i);
+  if(m) return {kind:'ok',url:'https://script.google.com/macros/s/'+m[1]+'/exec',msg:''};
+  if(/script\.google\.com\/macros\/s\//i.test(v)){
+    if(/\/dev\b/i.test(v)) return {kind:'bad',url:v,msg:'테스트용 .../dev 주소입니다. 배포 후 받은 .../exec 주소를 넣어 주세요.'};
+    return {kind:'bad',url:v,msg:'주소가 .../exec 로 끝나야 합니다. 복사한 주소를 끝까지 붙여 넣어 주세요.'};
+  }
+  return {kind:'bad',url:v,msg:'https://script.google.com/macros/s/…/exec 형식의 Apps Script 웹 앱 주소를 넣어 주세요.'};
 }
+
+function flashSync(msg,kind){
+  var el=$('#syncFlash');
+  if(!el) return;
+  el.textContent=msg;
+  el.className='sync-flash show'+(kind?' '+kind:'');
+  clearTimeout(flashSync._t);
+  flashSync._t=setTimeout(function(){ el.className='sync-flash'; },1600);
+}
+function syncUI(kind,msg){
+  var dot=$('#syncDot');
+  if(dot){
+    dot.className='dot'+(kind==='ok'?' on':(kind==='wait'?' wait':(kind==='err'?' err':'')));
+    dot.title=msg||(kind==='ok'?'구글 시트와 최신 상태':(kind==='wait'?'동기화 중':(kind==='err'?'동기화 오류':'구글 시트 미연결')));
+  }
+  var el=$('#syncStatus');
+  if(el && msg!==undefined){ el.textContent=msg||''; el.className='status'+(kind==='ok'?' ok':(kind==='err'?' err':'')); }
+  if(msg!==undefined) sync.lastMsg=msg||'';
+  refreshSyncInfo();
+}
+function setUrlHint(msg,kind){
+  var el=$('#urlHint');
+  if(!el) return;
+  el.textContent=msg||'';
+  el.className='url-hint'+(kind?' '+kind:'');
+  el.style.display=msg?'block':'none';
+}
+function refreshSyncInfo(){
+  var el=$('#syncInfo');
+  if(!el) return;
+  var parts=[autoSync?'자동 동기화 켜짐':'자동 동기화 꺼짐'];
+  parts.push('이 기기 '+stampLabel(state.meta&&state.meta.updatedAt));
+  parts.push('시트 '+(sync.remoteSavedAt?stampLabel(sync.remoteSavedAt):'—'));
+  parts.push('마지막 확인 '+(sync.lastPullAt?timeLabel(sync.lastPullAt):'—'));
+  el.textContent=parts.join(' · ');
+}
+
+/* 빈 상태 판정 — 값도 행도 없으면 시트를 절대 덮어쓰지 않는다 */
+function isBlank(o){
+  if(!o) return true;
+  var s=o.settings||{};
+  var has=num(s.goalAmount)||num(s.expectedDeposit)||num(s.loanBalance)||num(s.stockTargetProfit)||num(s.stockValue)||
+    num(s.monthlyInvest)||num(s.newLoanAtMoveIn)||num(s.monthlyInvestSim)||num(s.stockProfitSim)||(s.moveInDate?1:0);
+  if(has) return false;
+  return !((o.loans||[]).length||(o.schedule||[]).length||(o.monthly||[]).length||(o.stocks||[]).length);
+}
+
+/* JSONP — Apps Script 응답은 CORS 헤더가 없어 script 태그로 읽는다 */
 function jsonp(url,params,timeout){
-  timeout=timeout||15000;
+  timeout=timeout||12000;
   return new Promise(function(resolve,reject){
     var cb='wp_cb_'+Math.random().toString(36).slice(2);
     var s=document.createElement('script');
-    var done=false, t=setTimeout(function(){ if(!done){ cleanup(); reject(new Error('응답 시간 초과')); } },timeout);
-    function cleanup(){ clearTimeout(t); delete window[cb]; if(s.parentNode) s.parentNode.removeChild(s); }
-    window[cb]=function(data){ done=true; cleanup(); resolve(data); };
-    s.onerror=function(){ if(!done){ cleanup(); reject(new Error('연결 실패 — URL과 배포 권한을 확인하세요')); } };
+    var done=false;
+    var t=setTimeout(function(){ if(!done){ done=true; cleanup(); reject(new Error('응답 시간 초과')); } },timeout);
+    function cleanup(){ clearTimeout(t); try{ delete window[cb]; }catch(e){ window[cb]=undefined; } if(s.parentNode) s.parentNode.removeChild(s); }
+    window[cb]=function(data){ if(done) return; done=true; cleanup(); resolve(data); };
+    s.onerror=function(){ if(!done){ done=true; cleanup(); reject(new Error('연결 실패 — 주소와 배포 권한(모든 사용자)을 확인하세요')); } };
     var q=new URLSearchParams(Object.assign({},params,{callback:cb}));
     s.src=url+(url.indexOf('?')>=0?'&':'?')+q.toString();
+    s.charset='utf-8';
     document.head.appendChild(s);
   });
 }
+
+function postJson(url,body,timeout){
+  return new Promise(function(resolve,reject){
+    var done=false, ctrl=null;
+    var opt={method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:body,redirect:'follow',cache:'no-store'};
+    if(window.AbortController){ ctrl=new AbortController(); opt.signal=ctrl.signal; }
+    var t=setTimeout(function(){ if(done) return; done=true; if(ctrl){ try{ ctrl.abort(); }catch(e){} } reject(new Error('응답 시간 초과')); },timeout||20000);
+    fetch(url,opt).then(function(r){ return r.text(); }).then(function(txt){
+      if(done) return; done=true; clearTimeout(t);
+      var j=null; try{ j=JSON.parse(txt); }catch(e){}
+      if(j===null) reject(new Error('응답을 읽지 못했습니다')); else resolve(j);
+    }).catch(function(err){ if(done) return; done=true; clearTimeout(t); reject(err); });
+  });
+}
+
+/* 저장 응답이 CORS·리다이렉트로 가려졌을 때 시트를 다시 읽어 실제 저장 여부를 확인 */
+function confirmSaved(url,sentAt){
+  var tries=0;
+  return new Promise(function(resolve){
+    (function attempt(){
+      tries++;
+      jsonp(url,{action:'load',_t:String(Date.now())},10000).then(function(d){
+        var s=(d&&d.savedAt)?String(d.savedAt):'';
+        if(d && d.ok!==false && s && s>=sentAt){ resolve(true); return; }
+        if(tries<3){ setTimeout(attempt,900); } else { resolve(false); }
+      }).catch(function(){
+        if(tries<3){ setTimeout(attempt,1200); } else { resolve(false); }
+      });
+    })();
+  });
+}
+
 function buildPayload(sentAt){
-  var c=calc();
   return {
     action:'save', app:'wealthplan', version:1, savedAt:sentAt||new Date().toISOString(),
     settings:{
@@ -1161,7 +1308,8 @@ function buildPayload(sentAt){
       currentPrice:x.currentPrice==null?null:num(x.currentPrice), memo:x.memo||''}; })
   };
 }
-function applyRemote(d){
+
+function stateFromRemote(d){
   if(!d || typeof d!=='object') throw new Error('응답 형식이 올바르지 않습니다');
   var incoming={settings:{}, loans:d.loans||[], schedule:d.schedule||[], monthly:d.monthly||[], stocks:d.stocks||[]};
   var s=d.settings||{};
@@ -1171,59 +1319,330 @@ function applyRemote(d){
   if(s.moveInDate) incoming.settings.moveInDate=String(s.moveInDate);
   if(s.stockProfitSim!==undefined && s.stockProfitSim!==null && s.stockProfitSim!=='') incoming.settings.stockProfitSim=num(s.stockProfitSim);
   if(typeof s.repayExistingLoan==='boolean') incoming.settings.repayExistingLoan=s.repayExistingLoan;
-  incoming.meta={demo:false, updatedAt:new Date().toISOString(), savedAt:d.savedAt||null};
-  state=normalize(incoming);
-  saveState(); renderAll();
-  return {counts:['loans','schedule','monthly','stocks'].map(function(k){return state[k].length;}), savedAt:d.savedAt};
+  incoming.meta={demo:false, updatedAt:(d.savedAt?String(d.savedAt):new Date().toISOString()), savedAt:d.savedAt||null};
+  return normalize(incoming);
 }
-function loadFromSheet(silent){
-  var url=sheetUrl();
-  if(!url){ toast('Apps Script URL을 먼저 입력하세요'); return Promise.reject(new Error('no url')); }
-  if(!silent) setSync('시트에서 불러오는 중…');
-  return jsonp(url,{action:'load'},20000).then(function(d){
-    if(!d || d.ok===false) throw new Error((d&&d.error)||'시트 응답 오류');
-    var r=applyRemote(d);
-    setSync('시트에서 불러왔습니다 · 기록 '+r.counts[0]+'/'+r.counts[1]+'/'+r.counts[2]+'/'+r.counts[3],'ok');
-    return r;
+
+/* 백업(JSON) 불러오기 — 시트로는 자동 저장하지 않는다 */
+function applyRemote(d){
+  state=stateFromRemote(d);
+  persistNow(d.savedAt?String(d.savedAt):null);
+  sync.dirty=false;
+  renderAll();
+  return {counts:['loans','schedule','monthly','stocks'].map(function(k){return state[k].length;}), savedAt:d.savedAt||null};
+}
+
+/* ---------------------------------------------------------- 불러오기(Pull) */
+function pullFromSheet(opts){
+  opts=opts||{};
+  var info=classifyUrl(sheetUrl());
+  if(info.kind!=='ok'){
+    syncUI('none', info.kind==='bad'?info.msg:'구글 시트에 연결되지 않았습니다 — ⚙ 설정에서 Apps Script 주소를 넣으세요');
+    return Promise.resolve({applied:false, reason:'nourl'});
+  }
+  if(sync.pulling) return sync.pulling;
+  if(sync.dirty && !opts.force){ if(autoSync) scheduleAutoPush(SYNC_PUSH_DELAY); return Promise.resolve({applied:false, reason:'local-dirty'}); }
+
+  syncUI('wait','시트에서 최신 내용을 확인하는 중…');
+  var p=jsonp(info.url,{action:'load',_t:String(Date.now())},12000).then(function(d){
+    if(!d || d.ok===false) throw new Error((d&&d.error)||'시트 응답 오류 — 배포 권한을 확인하세요');
+    sync.lastPullAt=Date.now();
+    var remSaved=d.savedAt?String(d.savedAt):null;
+    var explicit=(opts.reason==='connect'||opts.reason==='manual');
+
+    if(isBlank(d)){
+      sync.remoteSavedAt=remSaved;
+      if(!isBlank(state)){
+        sync.error='시트가 비어 있습니다';
+        syncUI('err','시트가 비어 있습니다. 이 기기의 데이터는 그대로 두었습니다. 이 기기 내용을 시트로 올리려면 “이 기기 데이터를 시트로 저장”을 누르세요.');
+        if(opts.verbose) toast('시트가 비어 있어 이 기기 데이터를 유지했습니다');
+        return {applied:false, reason:'remote-empty'};
+      }
+      syncUI('ok','시트에 연결됐습니다. 시트가 비어 있습니다. 값을 입력하면 자동으로 저장됩니다.');
+      return {applied:false, reason:'both-empty'};
+    }
+
+    // 시트 내용이 지난번과 같으면 다시 그리지 않는다(폴링 부담·깜빡임 방지)
+    if(!opts.force && remSaved && sync.remoteSavedAt && remSaved===sync.remoteSavedAt){
+      sync.lastOkAt=Date.now(); sync.error='';
+      syncUI('ok','시트와 최신 상태입니다 · '+timeLabel());
+      return {applied:false, reason:'unchanged', savedAt:remSaved};
+    }
+
+    var localTs=Date.parse((state.meta&&state.meta.updatedAt)||'')||0;
+    var remoteTs=Date.parse(remSaved||'')||0;
+    if(!explicit && !isBlank(state) && !isBlank(d) && remoteTs && localTs>remoteTs){
+      // 이 기기가 더 최신 → 시트에서 가져오지 않고 이 기기 내용을 올린다
+      sync.dirty=true; scheduleAutoPush(800);
+      syncUI('wait','이 기기 내용이 더 최신입니다. 시트로 보내는 중…');
+      return {applied:false, reason:'local-newer'};
+    }
+    if(explicit && !isBlank(state) && remoteTs && localTs>remoteTs+2000){
+      if(!window.confirm('이 기기에 더 최근에 저장된 내용이 있습니다. 시트 내용으로 바꾸면 이 기기의 내용이 사라집니다. 계속할까요?')){
+        syncUI('ok','시트 내용을 적용하지 않았습니다. 이 기기 내용은 그대로입니다.');
+        return {applied:false, reason:'declined'};
+      }
+    }
+
+    if(sync.dirty && !opts.force){
+      sync.remoteSavedAt=remSaved; sync.lastOkAt=Date.now();
+      if(autoSync) scheduleAutoPush(600);
+      return {applied:false, reason:'local-dirty'};
+    }
+    state=stateFromRemote(d);
+    sync.remoteSavedAt=remSaved;
+    sync.dirty=false; sync.error=''; sync.lastOkAt=Date.now();
+    sync.lastAppliedAt=Date.now();
+    persistNow(remSaved);   // 기준 시각을 시트 값으로 맞춰 되돌림(push)이 생기지 않게
+    renderAll();
+    syncUI('ok','시트에서 불러왔습니다 · 상환 '+state.loans.length+' · 일정 '+state.schedule.length+
+      ' · 투입 '+state.monthly.length+' · 종목 '+state.stocks.length+' · '+timeLabel());
+    if(opts.verbose) toast('시트에서 불러왔습니다'); else flashSync('시트에서 새 내용을 불러왔습니다 · '+timeLabel(),'ok');
+    return {applied:true, savedAt:remSaved, counts:['loans','schedule','monthly','stocks'].map(function(k){return state[k].length;})};
+  }).catch(function(err){
+    sync.lastPullAt=Date.now();
+    sync.error=String((err&&err.message)||err||'알 수 없는 오류');
+    syncUI('err','시트를 불러오지 못했습니다 — '+sync.error);
+    if(opts.verbose||opts.reason==='connect'||opts.reason==='manual') toast('시트를 불러오지 못했습니다');
+    else flashSync('시트 확인 실패 — 설정에서 연결을 확인하세요','err');
+    return {applied:false, reason:'error', error:sync.error};
   });
+  sync.pulling=p;
+  p.then(function(){ if(sync.pulling===p) sync.pulling=null; });
+  return p;
 }
-function saveToSheet(){
-  var url=sheetUrl();
-  if(!url){ toast('Apps Script URL을 먼저 입력하세요'); return; }
+
+/* ---------------------------------------------------------- 저장(Push) */
+function pushToSheet(opts){
+  opts=opts||{};
+  var info=classifyUrl(sheetUrl());
+  if(info.kind!=='ok'){
+    if(opts.verbose){ syncUI('none', info.kind==='bad'?info.msg:'시트에 연결되지 않았습니다 — ⚙ 설정에서 Apps Script 주소를 넣으세요'); toast('시트 주소를 먼저 넣어 주세요'); }
+    return Promise.resolve({ok:false, skipped:'nourl'});
+  }
+  if(isBlank(state)){
+    sync.dirty=false; clearTimeout(sync.pushTimer);
+    var msg='입력된 값이 없는 빈 상태라서 시트를 덮어쓰지 않았습니다. 시트에 있는 자료를 먼저 불러오려면 “연결하고 불러오기”를 누르세요.';
+    syncUI('err',msg);
+    if(opts.verbose) toast('빈 상태에서는 시트를 덮어쓰지 않습니다');
+    return Promise.resolve({ok:false, skipped:'empty'});
+  }
+  if(state.meta && state.meta.demo){
+    syncUI('err','예시 데이터는 시트로 보내지 않습니다. 실제 값을 입력한 뒤 저장하세요.');
+    if(opts.verbose) toast('예시 데이터는 시트로 보내지 않습니다');
+    return Promise.resolve({ok:false, skipped:'demo'});
+  }
+  if(sync.pushing){ sync.dirty=true; return sync.pushing; }
+
   var sentAt=new Date().toISOString();
-  var payload=buildPayload(sentAt);
-  setSync('시트에 저장하는 중…');
-  fetch(url,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify(payload),redirect:'follow'})
-    .then(function(r){ return r.text(); })
-    .then(function(txt){ var j=JSON.parse(txt); if(!j||j.ok!==true) throw new Error((j&&j.error)||'저장 실패'); return j; })
-    .then(function(){
-      setSync('시트에 저장했습니다 · '+new Date().toLocaleTimeString('ko-KR'),'ok');
-      toast('구글 시트에 저장했습니다');
-    })
-    .catch(function(){
-      // 응답이 CORS로 가려질 수 있음 → 시트를 다시 읽어 실제 저장 여부 확인
-      setSync('저장 요청 전송 · 시트에서 확인 중…');
-      jsonp(url,{action:'load'},20000).then(function(d){
-        if(d && d.savedAt===sentAt){ setSync('시트 저장 확인 · '+new Date().toLocaleTimeString('ko-KR'),'ok'); toast('구글 시트에 저장했습니다'); }
-        else { setSync('저장 결과를 확인하지 못했습니다. 시트를 직접 열어 확인해 주세요.','err'); }
-      }).catch(function(){
-        setSync('저장 요청은 전송됐지만 응답을 확인할 수 없습니다. 시트를 열어 확인해 주세요.','err');
-      });
+  sync.lastAttemptAt=Date.now();
+  var body=JSON.stringify(buildPayload(sentAt));
+  clearTimeout(sync.pushTimer); sync.pushTimer=null;
+  sync.dirty=false;
+  syncUI('wait','시트에 저장하는 중…');
+
+  var p=postJson(info.url,body,20000).then(function(j){
+    if(!j || j.ok!==true) throw new Error((j&&j.error)||'저장 실패');
+    return {ok:true, savedAt:sentAt};
+  }).catch(function(err){
+    return confirmSaved(info.url,sentAt).then(function(ok){
+      if(!ok) throw err||new Error('저장 결과를 확인하지 못했습니다');
+      return {ok:true, savedAt:sentAt, verified:true};
     });
+  }).then(function(){
+    sync.lastPushAt=Date.now(); sync.lastOkAt=Date.now(); sync.remoteSavedAt=sentAt; sync.error='';
+    state.meta.updatedAt=sentAt;
+    persistNow(sentAt);
+    syncUI('ok','시트에 저장했습니다 · '+timeLabel());
+    if(opts.verbose) toast('구글 시트에 저장했습니다'); else flashSync('시트에 저장했습니다 · '+timeLabel(),'ok');
+    return {ok:true, savedAt:sentAt};
+  }).catch(function(err){
+    sync.dirty=true;
+    sync.error=String((err&&err.message)||err||'알 수 없는 오류');
+    syncUI('err','시트에 저장하지 못했습니다 — '+sync.error);
+    toast('시트 저장 실패 — 연결을 확인하세요');
+    return {ok:false, error:sync.error};
+  });
+
+  sync.pushing=p;
+  p.then(function(){ if(sync.pushing===p) sync.pushing=null; });
+  return p;
 }
+
+/* 변경 즉시 화면 반영 + 1초 뒤 자동 저장 예약 */
+function markChanged(){
+  sync.dirty=true;
+  var info=classifyUrl(sheetUrl());
+  if(!autoSync){
+    if(info.kind==='ok') syncUI('none','자동 동기화가 꺼져 있습니다. 직접 저장하세요.');
+    return;
+  }
+  if(info.kind!=='ok') return;
+  if(isBlank(state)){ syncUI('none','빈 상태 — 시트에 저장하지 않습니다'); return; }
+  if(state.meta && state.meta.demo){ syncUI('none','예시 데이터 — 시트에 저장하지 않습니다'); return; }
+  syncUI('wait','시트로 저장 대기 · '+timeLabel());
+  scheduleAutoPush(SYNC_PUSH_DELAY);
+}
+function scheduleAutoPush(delay){
+  clearTimeout(sync.pushTimer);
+  sync.pushTimer=setTimeout(function(){ sync.pushTimer=null; pushToSheet({auto:true}); },(delay==null?SYNC_PUSH_DELAY:delay));
+}
+
+function isBusyEditing(){
+  var a=document.activeElement;
+  if(a && /^(INPUT|TEXTAREA|SELECT)$/.test(a.tagName)) return true;
+  var m=$('#settingsModal');
+  if(m && m.classList.contains('open')) return true;
+  return false;
+}
+function maybeAutoPull(minGap){
+  if(!autoSync || document.hidden || navigator.onLine===false) return;
+  if(classifyUrl(sheetUrl()).kind!=='ok') return;
+  if(sync.dirty && !sync.pushing){
+    if(Date.now()-(sync.lastAttemptAt||0)>15000) scheduleAutoPush(300);
+    return;
+  }
+  if(sync.pushing) return;
+  if(isBusyEditing()) return;
+  if(Date.now()-(sync.lastPullAt||0) < (minGap||SYNC_POLL_MS)) return;
+  pullFromSheet({reason:'auto',silent:true});
+}
+
+function initSync(){
+  var raw=sheetUrl();
+  var info=classifyUrl(raw);
+  if(info.kind==='ok' && info.url!==raw) storeUrl(info.url);
+  var inp=$('#cfScriptUrl'); if(inp) inp.value=raw;
+  var cb=$('#cfAutoSync'); if(cb) cb.checked=autoSync;
+  if(info.kind==='bad') setUrlHint(info.msg,'bad');
+  else setUrlHint('',null);
+  if(info.kind==='ok'){
+    syncUI('wait','시트에서 최신 내용을 확인하는 중…');
+    setTimeout(function(){ pullFromSheet({reason:'open',silent:true}); },150);
+  }else{
+    syncUI('none', info.kind==='bad'?info.msg:'구글 시트에 연결되지 않았습니다 — ⚙ 설정에서 Apps Script 주소를 넣으세요');
+  }
+  clearInterval(sync.tickTimer);
+  sync.tickTimer=setInterval(function(){ maybeAutoPull(SYNC_POLL_MS); },SYNC_TICK_MS);
+  refreshSyncInfo();
+}
+
+/* ---------------------------------------------------------- 연결 UI */
+$('#cfScriptUrl').addEventListener('input',function(){
+  var info=classifyUrl(this.value);
+  if(info.kind==='ok') setUrlHint('연결 가능한 주소입니다. “연결하고 불러오기”를 누르면 시트 내용을 먼저 불러옵니다.','good');
+  else if(info.kind==='bad') setUrlHint(info.msg,'bad');
+  else setUrlHint('',null);
+});
 $('#cfScriptUrl').addEventListener('change',function(){
-  try{ localStorage.setItem(LS_URL,this.value.trim()); }catch(e){}
+  var info=classifyUrl(this.value);
+  if(info.kind==='ok'){
+    var changed=(info.url!==sheetUrl());
+    storeUrl(info.url);
+    this.value=info.url;
+    if(changed) sync.remoteSavedAt=null;
+    setUrlHint('연결 가능한 주소입니다. “연결하고 불러오기”를 누르면 시트 내용을 먼저 불러옵니다.','good');
+  }else if(info.kind==='empty'){
+    storeUrl(''); setUrlHint('',null);
+  }else{
+    setUrlHint(info.msg,'bad');
+  }
+});
+$('#btnSheetConnect').addEventListener('click',function(){
+  var v=$('#cfScriptUrl').value;
+  var info=classifyUrl(v);
+  if(info.kind!=='ok'){
+    setUrlHint(info.msg||'주소를 확인하세요','bad');
+    syncUI('err',info.msg||'주소를 확인하세요');
+    toast('주소를 확인해 주세요');
+    return;
+  }
+  var changed=(info.url!==sheetUrl());
+  storeUrl(info.url);
+  $('#cfScriptUrl').value=info.url;
+  if(changed) sync.remoteSavedAt=null;
+  setUrlHint('','');
+  syncUI('wait','연결 확인 중 — 시트에서 불러옵니다…');
+  pullFromSheet({reason:'connect',force:true,verbose:true}).then(function(r){
+    if(r && r.applied){
+      // 시트 내용을 받았으면 시트가 기준이 된다
+    }else if(r && r.reason==='both-empty'){
+      toast('연결됐습니다. 시트가 비어 있으니 값을 입력하면 자동 저장됩니다');
+    }else if(r && r.reason==='remote-empty'){
+      toast('시트가 비어 있어 이 기기 데이터를 유지했습니다');
+    }else if(r && r.reason==='error'){
+      toast('연결하지 못했습니다 — 주소와 배포 권한을 확인하세요');
+    }
+  });
 });
 $('#btnSheetLoad').addEventListener('click',function(){
-  var v=$('#cfScriptUrl').value.trim();
-  try{ localStorage.setItem(LS_URL,v); }catch(e){}
-  loadFromSheet(false).catch(function(err){ setSync(err.message||'불러오기 실패','err'); });
+  var v=$('#cfScriptUrl').value;
+  var info=classifyUrl(v);
+  if(info.kind!=='ok'){
+    setUrlHint(info.msg||'주소를 확인하세요','bad');
+    syncUI('err',info.msg||'주소를 확인하세요');
+    return;
+  }
+  storeUrl(info.url);
+  pullFromSheet({reason:'manual',force:true,verbose:true}).then(function(r){
+    if(r && r.reason==='unchanged') toast('시트와 이미 같은 상태입니다');
+  });
 });
 $('#btnSheetSave').addEventListener('click',function(){
-  var v=$('#cfScriptUrl').value.trim();
-  try{ localStorage.setItem(LS_URL,v); }catch(e){}
-  saveToSheet();
+  var v=$('#cfScriptUrl').value;
+  var info=classifyUrl(v);
+  if(info.kind!=='ok'){
+    setUrlHint(info.msg||'주소를 확인하세요','bad');
+    syncUI('err',info.msg||'주소를 확인하세요');
+    return;
+  }
+  storeUrl(info.url);
+  if(!window.confirm('이 기기의 내용으로 구글 시트를 덮어씁니다. 계속할까요?')) return;
+  pushToSheet({verbose:true, manual:true});
 });
+$('#btnSheetDisconnect').addEventListener('click',function(){
+  if(!window.confirm('이 기기에서 구글 시트 연결만 해제합니다. 시트의 자료와 이 기기의 자료는 그대로 남습니다. 계속할까요?')) return;
+  storeUrl('');
+  sync.remoteSavedAt=null; sync.dirty=false; clearTimeout(sync.pushTimer);
+  $('#cfScriptUrl').value='';
+  setUrlHint('',null);
+  syncUI('none','구글 시트 연결을 해제했습니다.');
+  toast('연결을 해제했습니다');
+});
+$('#cfAutoSync').addEventListener('change',function(){
+  autoSync=!!this.checked;
+  try{ localStorage.setItem('wealthplan.autoSync.v1',autoSync?'1':'0'); }catch(e){}
+  if(autoSync){ syncUI('none','자동 동기화를 켰습니다.'); maybeAutoPull(0); }
+  else { clearTimeout(sync.pushTimer); sync.pushTimer=null; syncUI('none','자동 동기화를 껐습니다. 변경 내용은 직접 저장해야 합니다.'); }
+  refreshSyncInfo();
+});
+
+/* 열기·복귀·연결 복구 시 자동 확인, 화면을 떠날 때는 저장 시도 */
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden){
+    if(sync.dirty && !sync.pushing && classifyUrl(sheetUrl()).kind==='ok') pushToSheet({auto:true});
+  }else{
+    maybeAutoPull(3000);
+  }
+});
+window.addEventListener('focus',function(){ maybeAutoPull(3000); });
+window.addEventListener('online',function(){ maybeAutoPull(0); });
+window.addEventListener('pageshow',function(e){ if(e.persisted) maybeAutoPull(0); });
+window.addEventListener('pagehide',function(){
+  if(sync.dirty && !sync.pushing && classifyUrl(sheetUrl()).kind==='ok') pushToSheet({auto:true});
+});
+
+/* 개발·검증용 최소 훅 (개인정보 없음) */
+window.__wp={
+  version:APP_VERSION,
+  getState:function(){ return JSON.parse(JSON.stringify(state)); },
+  isBlank:function(){ return isBlank(state); },
+  classifyUrl:classifyUrl,
+  pull:function(o){ var x=Object.assign({},o||{}); return pullFromSheet(x); },
+  push:function(o){ return pushToSheet(Object.assign({verbose:true},o||{})); },
+  seed:function(o){ state=normalize(o||{}); persistNow(null); renderAll(); return isBlank(state); },
+  syncInfo:function(){ return {url:sheetUrl(),dirty:sync.dirty,remoteSavedAt:sync.remoteSavedAt,lastPullAt:sync.lastPullAt,lastPushAt:sync.lastPushAt,autoSync:autoSync,error:sync.error}; }
+};
 
 /* ----------------------------------------------------------- 백업 */
 $('#btnExport').addEventListener('click',function(){
@@ -1247,7 +1666,7 @@ $('#importFile').addEventListener('change',function(e){
     try{
       var o=JSON.parse(String(rd.result));
       applyRemote(o);
-      setSync('백업 파일을 불러왔습니다','ok');
+      syncUI(sync.remoteSavedAt?'ok':'none','백업 파일을 불러왔습니다. 시트에는 자동으로 저장하지 않았습니다.');
       toast('백업을 불러왔습니다');
     }catch(err){ toast('파일을 읽지 못했습니다'); }
   };
@@ -1287,27 +1706,34 @@ function demoState(){
   return s;
 }
 $('#btnDemo').addEventListener('click',function(){
-  state=demoState(); saveState(); renderAll(); closeSettings(); toast('예시 데이터를 불러왔습니다');
+  state=demoState(); commit(); closeSettings(); toast('예시 데이터를 불러왔습니다');
 });
 $('#btnStartSettings').addEventListener('click',openSettings);
 $('#btnStartDemo').addEventListener('click',function(){
-  state=demoState(); saveState(); renderAll(); toast('예시 데이터를 불러왔습니다');
+  state=demoState(); commit(); toast('예시 데이터를 불러왔습니다');
 });
 $('#btnDemoClear').addEventListener('click',function(){
-  state=freshState(); saveState(); renderAll(); toast('예시 데이터를 지웠습니다');
+  state=freshState(); commit(); toast('예시 데이터를 지웠습니다');
 });
 $('#btnReset').addEventListener('click',function(){
   if(!window.confirm('이 기기에 저장된 모든 입력값을 지웁니다. 계속할까요?')) return;
-  state=freshState(); saveState(); renderAll(); closeSettings(); toast('모두 지웠습니다');
+  state=freshState(); commit(); closeSettings(); toast('모두 지웠습니다');
 });
 
 /* ----------------------------------------------------------- 시작 */
 loadState();
 renderAll();
+initSync();
 
 if('serviceWorker' in navigator && (location.protocol==='https:'||location.protocol==='http:')){
+  var swHadController=!!navigator.serviceWorker.controller, swReloading=false;
   window.addEventListener('load',function(){
-    navigator.serviceWorker.register('./sw.js').catch(function(){});
+    navigator.serviceWorker.register('./sw.js').then(function(reg){
+      try{ reg.update(); }catch(e){}
+    }).catch(function(){});
+  });
+  navigator.serviceWorker.addEventListener('controllerchange',function(){
+    if(swHadController && !swReloading){ swReloading=true; location.reload(); }
   });
 }
 })();
