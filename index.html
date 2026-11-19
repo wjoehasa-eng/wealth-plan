@@ -888,8 +888,9 @@ function memoNoTag(memo){ return String(memo||'').replace(/\s*#(현금|대출|�
 function inferFund(label,memo){
   var lab=String(label||''), mem=String(memo||''), t=lab+' '+mem;
   var tag=fundTagOf(mem); if(tag) return tag;
-  if(/잔금/.test(lab)) return '잔금';
+  if(/잔금/.test(lab)) return '잔금';                 // '잔금 (입주 지정일)', '잔금 옵션'
   if(/자납/.test(t)) return '현금';                 // '자납' 메모가 있으면 대출 차수라도 현금
+  if(/옵션/.test(lab)) return '현금';               // 유상옵션 납입은 자납 현금
   var m=lab.match(/중도금\s*(\d+)\s*차/);
   if(m) return (parseInt(m[1],10)>=6)?'현금':'대출';   // 1~5차 대출 실행, 6차부터 자납 현금
   if(/중도금|대출|주담대/.test(t)) return '대출';
