@@ -1,8 +1,8 @@
-/* 입주 자금관리 — 서비스 워커 v4
+/* 입주 자금관리 — 서비스 워커 v4.3
  * 앱 껍데기(index.html, 아이콘)만 캐시합니다. 데이터는 localStorage/구글 시트에 있습니다.
  * 새 버전은 즉시 활성화(skipWaiting + clients.claim)되어 폰·PC가 바로 새 코드를 받습니다.
  */
-const CACHE = 'wealth-plan-v4';
+const CACHE = 'wealth-plan-v4-3';
 const SHELL = [
   './',
   './index.html',

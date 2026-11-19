@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.0.0
+  입주 자금관리 — 설치형 웹앱(PWA) v4.3.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -12,6 +12,14 @@
   · v4: '내 대출현황' 탭 — 주택 관련(파랑) / 별도 개인(주황) 스택 바·항목별 내역,
         개인대출 추가·수정·삭제. 시뮬레이터 '추가 대출(개인)'은 확보 재원에 더해 부족분을 줄이고
         동시에 대출현황의 개인대출 합계에 반영. 설정에 취득세·등기비·중도금 후불이자(총 목표에 합산).
+  · v4.1: 쓰지 않는 '현금흐름' 탭을 걷어내고 4탭(요약·시뮬 / 대출현황 / 대출상환 / 주식) 구성.
+        state.monthly와 시트 '월별투입' 동기화 페이로드는 그대로 두어 기존 시트 데이터는 보존.
+        (제거된 탭 이름으로 showTab이 불려 오면 요약 탭으로 폴백)
+  · v4.2: 편집(관리자) 모드 — 기본은 읽기 전용(목록의 ✕·✎·일정 상태 버튼 숨김),
+        오른쪽 위 '편집'을 켰을 때만 삭제·수정. 새로 고치면 자동 OFF. 저장(localStorage)하지 않음.
+  · v4.3: 시뮬레이터 슬라이더 잠금 — 기본은 잠김(스크롤·스치기로 값이 바뀌지 않음).
+        슬라이더를 0.35초 꾹 누르면 진동(지원 기기)과 함께 그 슬라이더만 풀리고, 손을 떼고 잠시 뒤 다시 잠김.
+        카드 헤더의 🔒 잠금/🔓 조절 버튼으로 전체를 한 번에 토글.
 -->
 <html lang="ko">
 <head>
@@ -96,6 +104,7 @@ main{max-width:640px;margin:0 auto;padding:12px 12px 8px}
 /* 카드 */
 .card{background:var(--card);border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);padding:14px}
 .card-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.head-btns{display:flex;align-items:center;gap:6px}
 .card-head h2{font-size:14px;letter-spacing:-.2px}
 .hint{font-size:11px;color:var(--sub)}
 .mini{border:1px solid var(--line);background:transparent;border-radius:8px;padding:5px 9px;font-size:12px;font-weight:600;color:var(--ink2)}
@@ -170,12 +179,25 @@ main{max-width:640px;margin:0 auto;padding:12px 12px 8px}
 .sim-head label{font-size:13px;font-weight:700;color:var(--ink2)}
 .sim-head output{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;margin:2px 0 0}
+input[type=range]:focus{outline:none}
+input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:5px;border-radius:99px}
 input[type=range]::-webkit-slider-runnable-track{height:6px;border-radius:99px;background:var(--line)}
 input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:26px;height:26px;border-radius:50%;
   background:#fff;border:3px solid var(--accent);margin-top:-10px;box-shadow:0 1px 4px rgba(15,23,42,.25)}
 input[type=range]::-moz-range-track{height:6px;border-radius:99px;background:var(--line)}
 input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;background:#fff;border:3px solid var(--accent)}
 .sim-foot{display:flex;justify-content:space-between;font-size:11px;color:var(--sub);margin-top:-2px}
+/* 슬라이더 잠금 — 기본은 잠김, 꾹 누르기(0.35초) 또는 헤더 토글로 해제 */
+.sim-slide{position:relative;border-radius:10px}
+.sim-veil{position:absolute;inset:0;border-radius:10px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.sim-veil.pressing{background:color-mix(in srgb,var(--warn) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 50%,transparent)}
+.sim-veil.hidden{display:none!important}
+.sim-row.locked input[type=range]{opacity:.45;filter:grayscale(.55)}
+.sim-row.locked .sim-head output{color:var(--sub)}
+.sim-lock-ico{font-size:10px;margin-left:4px;vertical-align:1px;color:var(--warn)}
+.sim-lock-note{font-size:11px;color:var(--warn);font-weight:700;margin:-2px 0 11px;line-height:1.5}
+.sim-lock-note.open{color:var(--ok)}
+#btnSimLock.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .sim-result{margin-top:14px;padding:11px 12px;border-radius:12px;background:var(--line2);font-size:13px;display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .sim-result b{font-size:15px}
 
@@ -196,6 +218,16 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .row .amt small{display:block;font-size:10.5px;font-weight:500;color:var(--sub)}
 .del{border:0;background:transparent;color:var(--sub);font-size:15px;width:32px;height:32px;border-radius:8px;display:grid;place-items:center;flex:0 0 auto}
 .del:active{background:var(--line2)}
+/* 편집(관리자) 모드 — 기본은 읽기 전용, 켰을 때만 삭제 ✕·수정 ✎ 버튼이 보임 */
+body:not(.edit-mode) .del{display:none!important}
+body.edit-mode .row{background:color-mix(in srgb,var(--warn) 7%,transparent);border-radius:9px;padding-left:7px;padding-right:3px}
+body.edit-mode .row .del{color:var(--bad);background:var(--bad-soft)}
+body.edit-mode .row .del[data-pl-edit]{color:var(--accent);background:var(--accent-soft)}
+body.edit-mode .row .pill[data-sc-toggle]{border-style:dashed;cursor:pointer}
+.edit-toggle{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card);color:var(--sub);
+  font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:99px;line-height:1;min-height:28px}
+.edit-toggle.on{background:var(--warn);border-color:var(--warn);color:#fff;box-shadow:0 2px 8px rgba(217,119,6,.3)}
+.edit-toggle .ico{font-size:12px;line-height:1}
 .pill{border:1px solid var(--line);background:var(--card);border-radius:99px;padding:3px 9px;font-size:11px;font-weight:700;color:var(--ink2)}
 .pill.done{background:var(--ok-soft);border-color:color-mix(in srgb,var(--ok) 30%,transparent);color:var(--ok)}
 .pill.soon{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 30%,transparent);color:var(--accent)}
@@ -281,6 +313,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
   <div class="brand"><span class="logo">🏠</span><span>입주 자금관리</span></div>
   <div class="top-right">
     <span id="syncDot" class="dot" title="구글 시트 연결"></span>
+    <button id="btnEditMode" class="edit-toggle" aria-pressed="false" title="편집(관리자) 모드 — 목록의 ✕·✎ 버튼이 나타납니다"><span class="ico">🔒</span><span class="tx">편집</span></button>
     <button id="btnSettings" class="icon-btn" aria-label="설정">⚙️</button>
   </div>
 </header>
@@ -343,26 +376,32 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="card">
-      <div class="card-head"><h2>시뮬레이터</h2><button class="mini" id="btnSimReset">초기값</button></div>
+      <div class="card-head"><h2>시뮬레이터</h2>
+        <div class="head-btns">
+          <button class="mini" id="btnSimLock" aria-pressed="true" title="시뮬레이터 잠금 — 꾹 누르거나 이 버튼을 눌러 조절">🔒 잠금</button>
+          <button class="mini" id="btnSimReset">초기값</button>
+        </div>
+      </div>
+      <div class="sim-lock-note" id="simLockNote">🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다.</div>
       <div class="sim">
         <div class="sim-row">
-          <div class="sim-head"><label for="simMonthly">월급에서 매달 저축</label><output id="simMonthlyOut">0원</output></div>
-          <input type="range" id="simMonthly" min="0" max="20000000" step="100000" value="0">
+          <div class="sim-head"><label for="simMonthly">월급에서 매달 저축<span class="sim-lock-ico" id="lockico-simMonthly" aria-hidden="true">🔒</span></label><output id="simMonthlyOut">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simMonthly" min="0" max="20000000" step="100000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simMonthly" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simMonthlyHint"></span><span id="simMonthlyMax">2,000만</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simProfit">주식 목표 수익</label><output id="simProfitOut">0원</output></div>
-          <input type="range" id="simProfit" min="0" max="400000000" step="10000000" value="0">
+          <div class="sim-head"><label for="simProfit">주식 목표 수익<span class="sim-lock-ico" id="lockico-simProfit" aria-hidden="true">🔒</span></label><output id="simProfitOut">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simProfit" min="0" max="400000000" step="10000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simProfit" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>+0</span><span></span><span>+4억</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simLoan">입주 시 신규·승계 주담대</label><output id="simLoanOut">0원</output></div>
-          <input type="range" id="simLoan" min="0" max="1000000000" step="10000000" value="0">
+          <div class="sim-head"><label for="simLoan">입주 시 신규·승계 주담대<span class="sim-lock-ico" id="lockico-simLoan" aria-hidden="true">🔒</span></label><output id="simLoanOut">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simLoan" min="0" max="1000000000" step="10000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simLoan" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simLoanHint"></span><span id="simLoanMax">10억</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simExtra">추가 대출 (개인대출)</label><output id="simExtraOut">0원</output></div>
-          <input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0">
+          <div class="sim-head"><label for="simExtra">추가 대출 (개인대출)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simExtra" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
         </div>
       </div>
@@ -451,29 +490,6 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
   </section>
 
-  <!-- ============ 현금흐름 ============ -->
-  <section class="view hidden" id="view-cash">
-    <div class="kpis" id="cashKpis"></div>
-    <div class="card">
-      <div class="card-head"><h2>월별 투입</h2><span class="hint" id="cashChartHint"></span></div>
-      <div class="chart" id="cashChart"></div>
-    </div>
-    <div class="card">
-      <div class="card-head"><h2>투입 기록</h2><button class="mini" id="btnAddMonthly">+ 추가</button></div>
-      <div class="list" id="monthlyList"></div>
-      <div class="form hidden" id="monthlyForm">
-        <div><label>월</label><input id="moMonth" type="month"></div>
-        <div><label>투입 금액</label><input id="moAmount" class="money" inputmode="numeric" placeholder="0"></div>
-        <div><label>구분</label>
-          <select id="moKind"><option value="급여">급여</option><option value="상여">상여</option><option value="기타">기타</option></select>
-        </div>
-        <div><label>메모</label><input id="moMemo" placeholder="선택"></div>
-        <div class="full btn-row"><button class="btn ghost" id="moCancel">취소</button><button class="btn primary" id="moSave">저장</button></div>
-      </div>
-      <div class="note" style="margin-top:10px">여기 기록한 금액은 <b>앞으로의 투입 속도</b>를 가늠하는 자료입니다. 이미 모인 돈은 전세금·주식 평가금으로 잡히므로 이중 계산되지 않습니다.</div>
-    </div>
-  </section>
-
   <!-- ============ 주식 ============ -->
   <section class="view hidden" id="view-stocks">
     <div class="kpis" id="stockKpis"></div>
@@ -497,7 +513,6 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
   <button class="tab active" data-tab="summary"><span class="ic">📊</span><span class="tx">요약·시뮬</span></button>
   <button class="tab" data-tab="debt"><span class="ic">🧾</span><span class="tx">대출현황</span></button>
   <button class="tab" data-tab="loans"><span class="ic">🏦</span><span class="tx">대출상환</span></button>
-  <button class="tab" data-tab="cash"><span class="ic">💧</span><span class="tx">현금흐름</span></button>
   <button class="tab" data-tab="stocks"><span class="ic">📈</span><span class="tx">주식</span></button>
 </nav>
 
@@ -587,6 +602,10 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       <div class="btn-row hidden" id="restoreRow" style="margin-top:8px">
         <button class="btn" id="btnRestore">직전 상태 되돌리기</button>
       </div>
+      <div class="note" style="margin-top:8px">
+        목록의 <b>✕ 삭제</b>·<b>✎ 수정</b> 버튼은 화면 오른쪽 위 <b>편집</b>을 켰을 때만 나타나고,
+        납입일정의 상태 버튼도 그때만 동작합니다. 기본은 읽기 전용이고, 화면을 새로 고치면 다시 읽기 전용으로 돌아갑니다.
+      </div>
       <div class="note" style="margin-top:8px" id="dataInfo"></div>
       <div class="note" id="prevInfo" style="margin-top:6px"></div>
     </div>
@@ -609,7 +628,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 v4.0 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v4.3 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
@@ -624,7 +643,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.0.0';
+var APP_VERSION='4.3.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -934,29 +953,6 @@ function loanChart(){
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="대출 잔액 추이">'+out.join('')+'</svg>';
 }
 
-function cashChart(){
-  var rows=state.monthly.slice().sort(function(a,b){return String(a.month).localeCompare(String(b.month));});
-  if(!rows.length) return '<div class="empty">월별 투입을 기록하면 막대 그래프로 보여 줍니다.</div>';
-  var W=360,H=180,padL=4,padR=4,padT=18,padB=28;
-  var plotW=W-padL-padR, plotH=H-padT-padB;
-  var maxV=Math.max.apply(null,rows.map(function(r){return r.amount;}).concat([1]));
-  var avg=rows.reduce(function(s,r){return s+r.amount;},0)/rows.length;
-  var n=Math.max(rows.length,6), slot=plotW/n, bw=Math.min(28,slot*0.62);
-  var out=[];
-  out.push('<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(W-padR)+'" y2="'+(padT+plotH)+'" stroke="currentColor" stroke-opacity=".15"/>');
-  rows.forEach(function(r,i){
-    var h=Math.max(2,(r.amount/maxV)*plotH);
-    var x=padL+slot*(i+0.5)-bw/2, y=padT+plotH-h;
-    out.push('<rect x="'+x.toFixed(1)+'" y="'+y.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3" fill="#0ea5e9"/>');
-    out.push('<text x="'+(padL+slot*(i+0.5)).toFixed(1)+'" y="'+(y-4).toFixed(1)+'" text-anchor="middle" font-size="7.5" fill="currentColor" fill-opacity=".7">'+fmtShort(r.amount)+'</text>');
-    out.push('<text x="'+(padL+slot*(i+0.5)).toFixed(1)+'" y="'+(padT+plotH+13)+'" text-anchor="middle" font-size="7.5" fill="currentColor" fill-opacity=".55">'+String(r.month||'').slice(2).replace('-','.')+'</text>');
-  });
-  var ay=padT+plotH-(avg/maxV)*plotH;
-  out.push('<line x1="'+padL+'" y1="'+ay.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+ay.toFixed(1)+'" stroke="#f59e0b" stroke-width="1.2" stroke-dasharray="4 3"/>');
-  out.push('<text x="'+(W-padR)+'" y="'+(ay-4).toFixed(1)+'" text-anchor="end" font-size="8" fill="#f59e0b">평균 '+fmtShort(avg)+'</text>');
-  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="월별 투입 막대 그래프">'+out.join('')+'</svg>';
-}
-
 /* ----------------------------------------------------------- 렌더: 요약 */
 function srowHtml(k,v,cls){
   return '<div class="srow'+(cls?' '+cls:'')+'"><span class="sk">'+esc(k)+'</span><span class="sv">'+esc(v)+'</span></div>';
@@ -1240,38 +1236,6 @@ function renderLoans(){
   }).join('');
 }
 
-/* ----------------------------------------------------------- 렌더: 현금흐름 */
-function renderCash(){
-  var rows=state.monthly.slice().sort(function(a,b){return String(a.month).localeCompare(String(b.month));});
-  var total=rows.reduce(function(s,r){return s+r.amount;},0);
-  var avg=rows.length?total/rows.length:0;
-  var last3=rows.slice(-3);
-  var avg3=last3.length?last3.reduce(function(s,r){return s+r.amount;},0)/last3.length:0;
-  var c=calc();
-  var kpis=[
-    {k:'누적 투입', v:fmtWon(total), d:rows.length+'개월 기록'},
-    {k:'월평균', v:fmtMan(avg), d:rows.length?'전체 기간':'—'},
-    {k:'최근 3개월 평균', v:fmtMan(avg3), d:last3.length?'최근 흐름':'—'},
-    {k:'필요 월 투입', v:(c.hasTarget&&c.months>0)?fmtMan(c.reqMonthly):'—',
-      d:(c.hasTarget&&c.months>0)?(avg3>=c.reqMonthly?'현 속도로 충분':'월 '+fmtShort(c.reqMonthly-avg3)+' 더 필요'):'기간 미설정', accent:true}
-  ];
-  $('#cashKpis').innerHTML=kpis.map(function(k){
-    return '<div class="kpi'+(k.accent?' accent':'')+'"><div class="k">'+k.k+'</div><div class="v" title="'+esc(k.v)+'">'+esc(k.v)+'</div><div class="d">'+esc(k.d)+'</div></div>';
-  }).join('');
-  $('#cashChart').innerHTML=cashChart();
-  $('#cashChartHint').textContent=rows.length?('평균 '+fmtShort(avg)):'';
-
-  var el=$('#monthlyList');
-  if(!rows.length){ el.innerHTML='<div class="empty">아직 기록이 없습니다. 월별로 넣은 금액을 남겨 두면 투입 속도가 보입니다.</div>'; return; }
-  el.innerHTML=rows.slice().reverse().map(function(r){
-    return '<div class="row"><div class="main">'+
-      '<div class="t1">'+esc(r.month||'월 미지정')+' · '+esc(r.kind||'기타')+'</div>'+
-      '<div class="t2">'+esc(r.memo||'메모 없음')+'</div></div>'+
-      '<div class="amt">'+fmtShort(r.amount)+'</div>'+
-      '<button class="del" data-del="monthly" data-id="'+r.id+'" aria-label="삭제">✕</button></div>';
-  }).join('');
-}
-
 /* ----------------------------------------------------------- 렌더: 주식 */
 function renderStocks(){
   var t=stockTotals();
@@ -1301,20 +1265,22 @@ function renderStocks(){
 }
 
 function renderAll(){
-  renderSummary(); renderDebt(); renderLoans(); renderCash(); renderStocks();
+  renderSummary(); renderDebt(); renderLoans(); renderStocks();
   $('#demoBanner').classList.toggle('hidden',!state.meta.demo);
   var info=$('#dataInfo');
   if(info){
     info.textContent = (state.meta.updatedAt?('마지막 저장 '+new Date(state.meta.updatedAt).toLocaleString('ko-KR')):'저장 기록 없음')
-      + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 투입 '+state.monthly.length+'개월 · 종목 '+state.stocks.length+'개 · 개인대출 '+state.extraLoans.length+'건';
+      + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 종목 '+state.stocks.length+'개 · 개인대출 '+state.extraLoans.length+'건';
   }
   refreshSyncInfo();
   if(typeof renderPrevInfo==='function') renderPrevInfo();
 }
 
 /* ----------------------------------------------------------- 이벤트: 탭 */
-var TAB_KEYS=['summary','debt','loans','cash','stocks'];
+var TAB_KEYS=['summary','debt','loans','stocks'];
 function showTab(tab){
+  /* v4.1: '현금흐름' 탭 제거 — 없는 탭 이름이 들어오면 요약으로 폴백 */
+  if(TAB_KEYS.indexOf(tab)<0) tab='summary';
   $$('.tabbar .tab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
   TAB_KEYS.forEach(function(k){ $('#view-'+k).classList.toggle('hidden',k!==tab); });
   if(tab==='debt') renderDebt();
@@ -1353,7 +1319,97 @@ simHandler('#simLoan','loan');
 simHandler('#simExtra','extra');
 $('#btnSimReset').addEventListener('click',function(){
   state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null; state.settings.additionalLoanSim=0;
+  simTempOpen={}; applySimLock();
   commitSummary(); toast('시뮬레이터를 초기값으로 되돌렸습니다');
+});
+
+/* ----------------------------------------------------------- 시뮬레이터 잠금 -----------------------------------------------------------
+ * 스크롤하다 스쳐서 값이 바뀌는 것을 막는다. 기본은 잠김.
+ *  · 슬라이더를 0.35초 꾹 누르면 navigator.vibrate(25) + 그 슬라이더만 해제, 손을 떼고 잠시 뒤 다시 잠김.
+ *  · 카드 헤더의 🔒 잠금 / 🔓 조절 버튼으로 전체를 한 번에 켜고 끈다(PC·연속 조절용).
+ */
+var SIM_IDS=['simMonthly','simProfit','simLoan','simExtra'];
+var LONG_PRESS_MS=350, SIM_RELOCK_MS=1200;
+var simLocked=true, simTempOpen={}, simRelockTimers={};
+
+function simRowOf(id){ var el=$('#'+id); return el?el.closest('.sim-row'):null; }
+function simIsOpen(id){ return !simLocked || !!simTempOpen[id]; }
+function applySimLock(){
+  SIM_IDS.forEach(function(id){
+    var inp=$('#'+id); if(!inp) return;
+    var open=simIsOpen(id), row=simRowOf(id), veil=$('#veil-'+id), ico=$('#lockico-'+id);
+    inp.disabled=!open;
+    inp.setAttribute('aria-disabled', open?'false':'true');
+    if(row) row.classList.toggle('locked',!open);
+    if(veil) veil.classList.toggle('hidden',open);
+    if(ico) ico.classList.toggle('hidden',open);
+  });
+  var b=$('#btnSimLock');
+  if(b){
+    b.textContent=simLocked?'🔒 잠금':'🔓 조절';
+    b.classList.toggle('on',!simLocked);
+    b.setAttribute('aria-pressed', simLocked?'true':'false');
+    b.title=simLocked?'시뮬레이터 잠금 — 꾹 누르거나 이 버튼을 눌러 조절':'시뮬레이터 조절 중 — 다시 누르면 잠깁니다';
+  }
+  var n=$('#simLockNote');
+  if(n){
+    n.classList.toggle('open',!simLocked);
+    n.innerHTML = simLocked
+      ? '🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다.'
+      : '🔓 조절 중 — 스크롤하다 값이 바뀌지 않도록, 다 쓰면 <b>🔒 잠금</b>을 눌러 두세요.';
+  }
+}
+function simRelockSoon(id,ms){
+  if(!simTempOpen[id]) return;
+  if(simRelockTimers[id]) clearTimeout(simRelockTimers[id]);
+  simRelockTimers[id]=setTimeout(function(){
+    delete simRelockTimers[id];
+    if(simTempOpen[id]){ delete simTempOpen[id]; applySimLock(); }
+  }, ms);
+}
+function simClearTimers(id){
+  if(simRelockTimers[id]){ clearTimeout(simRelockTimers[id]); delete simRelockTimers[id]; }
+}
+function simUnlockOne(id){
+  if(!simLocked || simTempOpen[id]) return;
+  simTempOpen[id]=true;
+  try{ if(navigator && typeof navigator.vibrate==='function') navigator.vibrate(25); }catch(e){}
+  applySimLock();
+  toast('이 슬라이더를 조절할 수 있습니다 — 손을 뗀 뒤 드래그하세요');
+  simRelockSoon(id, 8000);            // 만지지 않으면 8초 뒤 다시 잠김
+}
+SIM_IDS.forEach(function(id){
+  var veil=$('#veil-'+id), inp=$('#'+id);
+  if(!veil) return;
+  var timer=null, startX=0, startY=0;
+  function cancelPress(){
+    if(timer){ clearTimeout(timer); timer=null; }
+    veil.classList.remove('pressing');
+  }
+  veil.addEventListener('pointerdown',function(e){
+    if(!simLocked || simTempOpen[id]) return;
+    startX=e.clientX||0; startY=e.clientY||0;
+    veil.classList.add('pressing');
+    timer=setTimeout(function(){ timer=null; veil.classList.remove('pressing'); simUnlockOne(id); }, LONG_PRESS_MS);
+  });
+  veil.addEventListener('pointermove',function(e){
+    if(!timer) return;
+    var dx=Math.abs((e.clientX||0)-startX), dy=Math.abs((e.clientY||0)-startY);
+    if(dx>8||dy>8) cancelPress();     // 스크롤로 판단 → 해제 취소
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ veil.addEventListener(ev,cancelPress); });
+  veil.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+
+  if(inp){
+    inp.addEventListener('input',function(){ if(simTempOpen[id]) simClearTimers(id); });
+    inp.addEventListener('change',function(){ if(simTempOpen[id]) simRelockSoon(id, SIM_RELOCK_MS); });
+  }
+});
+$('#btnSimLock').addEventListener('click',function(){
+  simLocked=!simLocked;
+  simTempOpen={}; SIM_IDS.forEach(simClearTimers);
+  applySimLock();
+  toast(simLocked?'시뮬레이터를 잠갔습니다 — 스크롤해도 값이 바뀌지 않습니다':'시뮬레이터 조절 — 다 쓰면 🔒 잠금을 눌러 두세요');
 });
 
 /* ----------------------------------------------------------- 납입 일정 */
@@ -1373,6 +1429,7 @@ $('#scSave').addEventListener('click',function(){
 $('#scheduleList').addEventListener('click',function(e){
   var t=e.target.closest('[data-sc-toggle]');
   if(t){
+    if(!editMode){ toast('오른쪽 위 편집을 켜야 일정 상태를 바꿀 수 있습니다'); return; }
     var id=t.getAttribute('data-sc-toggle');
     var row=state.schedule.filter(function(x){return x.id===id;})[0];
     if(row){ row.status = row.status==='완료'?'미정':'완료'; commitSummary(); }
@@ -1382,6 +1439,7 @@ $('#scheduleList').addEventListener('click',function(e){
 
 /* ----------------------------------------------------------- 삭제 */
 function handleDelete(btn){
+  if(!editMode){ toast('오른쪽 위 편집을 켜야 삭제할 수 있습니다'); return; }
   var kind=btn.getAttribute('data-del'), id=btn.getAttribute('data-id');
   var arr=state[kind]||[];
   var idx=arr.findIndex(function(x){return x.id===id;});
@@ -1430,21 +1488,8 @@ $('#lnSave').addEventListener('click',function(){
   commit(); toast('상환 내역을 추가했습니다');
 });
 
-/* ----------------------------------------------------------- 월별 투입 */
-$('#btnAddMonthly').addEventListener('click',function(){
-  $('#monthlyForm').classList.toggle('hidden');
-  if(!$('#moMonth').value){ var d=new Date(); $('#moMonth').value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); }
-});
-$('#moCancel').addEventListener('click',function(){ $('#monthlyForm').classList.add('hidden'); });
-$('#moSave').addEventListener('click',function(){
-  var m=$('#moMonth').value, a=num($('#moAmount').value);
-  if(!m){ toast('월을 선택하세요'); return; }
-  if(a<=0){ toast('투입 금액을 입력하세요'); return; }
-  state.monthly.push({id:uid(), month:m, amount:a, kind:$('#moKind').value, memo:($('#moMemo').value||'').trim()});
-  $('#moAmount').value=''; $('#moMemo').value='';
-  $('#monthlyForm').classList.add('hidden');
-  commit(); toast('투입 기록을 추가했습니다');
-});
+/* v4.1: '월별 투입' 입력 화면은 제거됐습니다. state.monthly와 시트 동기화 payload는
+   기존 시트 데이터 보존을 위해 그대로 유지합니다. */
 
 /* ----------------------------------------------------------- 주식 */
 $('#btnAddStock').addEventListener('click',function(){ $('#stockForm').classList.toggle('hidden'); });
@@ -1478,6 +1523,7 @@ $('#plCancel').addEventListener('click',resetPersonalForm);
 $('#debtPersonalList').addEventListener('click',function(e){
   var b=e.target.closest('[data-pl-edit]');
   if(!b) return;
+  if(!editMode){ toast('오른쪽 위 편집을 켜야 수정할 수 있습니다'); return; }
   var id=b.getAttribute('data-pl-edit');
   var l=state.extraLoans.filter(function(x){return x.id===id;})[0];
   if(!l) return;
@@ -1505,6 +1551,34 @@ $('#plSave').addEventListener('click',function(){
     state.extraLoans.push({id:uid(), name:name, balance:balance, rate:rate, memo:memo});
     resetPersonalForm(); commit(); toast('개인대출을 추가했습니다');
   }
+});
+
+/* ----------------------------------------------------------- 편집(관리자) 모드 -----------------------------------------------------------
+ * 기본 OFF = 읽기 전용. 목록의 삭제 ✕·수정 ✎·일정 상태 버튼은 켰을 때만 보인다.
+ * 편집 여부는 변수에만 둔다 — 새로 고치면 자동으로 다시 OFF(안전).
+ */
+var editMode=false;
+function setEditMode(on){
+  editMode=!!on;
+  document.body.classList.toggle('edit-mode',editMode);
+  var b=$('#btnEditMode');
+  if(b){
+    b.classList.toggle('on',editMode);
+    b.setAttribute('aria-pressed',editMode?'true':'false');
+    b.title=editMode?'편집 모드 켜짐 — 목록의 ✕·✎ 버튼이 보입니다. 다시 누르면 읽기 전용'
+                    :'편집(관리자) 모드 — 목록의 ✕·✎ 버튼이 나타납니다';
+    var ic=b.querySelector('.ico'), tx=b.querySelector('.tx');
+    if(ic) ic.textContent=editMode?'✏️':'🔒';
+    if(tx) tx.textContent=editMode?'편집 중':'편집';
+  }
+  if(!editMode){
+    $$('.view .form').forEach(function(f){ f.classList.add('hidden'); });
+    if(typeof resetPersonalForm==='function') resetPersonalForm();
+  }
+}
+$('#btnEditMode').addEventListener('click',function(){
+  setEditMode(!editMode);
+  toast(editMode?'편집 모드 — 목록에서 삭제·수정할 수 있습니다':'읽기 전용으로 돌아왔습니다');
 });
 
 /* ----------------------------------------------------------- 설정 모달 */
@@ -1825,7 +1899,7 @@ function pullFromSheet(opts){
     persistNow(remSaved);   // 기준 시각을 시트 값으로 맞춰 되돌림(push)이 생기지 않게
     renderAll();
     syncUI('ok','시트에서 불러왔습니다 · 상환 '+state.loans.length+' · 일정 '+state.schedule.length+
-      ' · 투입 '+state.monthly.length+' · 종목 '+state.stocks.length+' · '+timeLabel());
+      ' · 종목 '+state.stocks.length+' · '+timeLabel());
     if(opts.verbose) toast('시트에서 불러왔습니다'); else flashSync('시트에서 새 내용을 불러왔습니다 · '+timeLabel(),'ok');
     return {applied:true, savedAt:remSaved, counts:['loans','schedule','monthly','stocks'].map(function(k){return state[k].length;})};
   }).catch(function(err){
@@ -2097,7 +2171,7 @@ function renderPrevInfo(){
   if(row) row.classList.toggle('hidden',!prev);
   if(info){
     info.textContent = prev
-      ? ('직전 상태 백업 '+new Date(prev.at).toLocaleString('ko-KR')+(prev.label?(' · '+prev.label):'')+' · 상환 '+((prev.state.loans||[]).length)+' · 일정 '+((prev.state.schedule||[]).length)+' · 투입 '+((prev.state.monthly||[]).length)+' · 종목 '+((prev.state.stocks||[]).length))
+      ? ('직전 상태 백업 '+new Date(prev.at).toLocaleString('ko-KR')+(prev.label?(' · '+prev.label):'')+' · 상환 '+((prev.state.loans||[]).length)+' · 일정 '+((prev.state.schedule||[]).length)+' · 종목 '+((prev.state.stocks||[]).length))
       : '';
   }
 }
@@ -2164,12 +2238,6 @@ function demoState(){
     {id:uid(),label:'중도금 2차',dueDate:'2028-01-10',amount:200000000,status:'예정',memo:''},
     {id:uid(),label:'잔금',dueDate:'2029-03-01',amount:500000000,status:'미정',memo:''}
   ];
-  s.monthly=[
-    {id:uid(),month:'2026-06',amount:3000000,kind:'급여',memo:''},
-    {id:uid(),month:'2026-07',amount:4000000,kind:'급여',memo:''},
-    {id:uid(),month:'2026-08',amount:4000000,kind:'급여',memo:''},
-    {id:uid(),month:'2026-09',amount:4500000,kind:'상여',memo:'예시'}
-  ];
   s.stocks=[
     {id:uid(),name:'예시 배당 ETF',qty:200,avgPrice:15000,currentPrice:17000,memo:'예시'},
     {id:uid(),name:'예시 성장주',qty:20,avgPrice:120000,currentPrice:130000,memo:''}
@@ -2201,6 +2269,8 @@ $('#btnReset').addEventListener('click',function(){
 
 /* ----------------------------------------------------------- 시작 */
 loadState();
+setEditMode(false);   /* 새로 고치면 항상 읽기 전용에서 시작 */
+applySimLock();       /* 시뮬레이터도 항상 잠긴 상태에서 시작 */
 renderAll();
 initSync();
 
