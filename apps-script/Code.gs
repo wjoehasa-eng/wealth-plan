@@ -57,7 +57,7 @@ var SETTING_KEYS = [
   ['monthlyInvestSim', '월투입(시뮬)', '시뮬레이터에서 조절한 값'],
   ['newLoanAtMoveIn', '신규주담대(예상)', '입주 시점 신규·승계 주담대'],
   ['stockProfitSim', '주식수익(시뮬)', '시뮬레이터에서 조절한 값'],
-  ['repayExistingLoan', '기존대출상환반영', 'Y / N'],
+  ['repayExistingLoan', '기존대출상환반영', 'v3부터 계산에 쓰지 않음(Y/N 기록만 남김)'],
   ['appConnectedAt', '앱연결시각', '앱이 마지막으로 저장한 시각']
 ];
 
