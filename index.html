@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.4.0
+  입주 자금관리 — 설치형 웹앱(PWA) v4.5.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -26,6 +26,11 @@
         시트 '개인대출' 탭 5번째 컬럼 '입주포함'(Y/N)과 동기화하며, 4컬럼 시트·구버전 Code.gs에서도
         오류 없이 동작하고 그때는 이 기기의 체크 값을 그대로 둔다.
         시뮬레이터 4번째 슬라이더 라벨을 '추가 대출 (입주용 시뮬)'로 바꿔 실제 개인대출 목록과 구분.
+  · v4.5: 금액 표시를 원·만 원 단위까지 정확히 — '2.7억' 같은 뭉뚱그림 제거.
+        fmtWon은 1원 단위까지(예: 1억 2,345만 6,789원), fmtShort는 만 원 단위까지(예: 12억 3,456만).
+        좁은 SVG 차트 눈금·막대 라벨만 fmtAxis로 억/만 축약(글자 겹침 방지).
+        시뮬레이터 주식 수익·신규 주담대 step 1,000만 → 100만 원, 오른쪽 금액(✎)을 눌러
+        원 단위 직접 입력(잠금을 푼 상태에서).
 -->
 <html lang="ko">
 <head>
@@ -177,6 +182,27 @@ main{max-width:640px;margin:0 auto;padding:12px 12px 8px}
 .tag{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px;margin-top:2px}
 .tag.self{background:var(--ok-soft);color:var(--ok)}
 .tag.loan{background:var(--line2);color:var(--sub)}
+/* v4.5: 납입일정 자금 성격 뱃지 + 시기별 현금/대출 카드 */
+.tag.fund{font-weight:800;margin-left:5px;vertical-align:1px}
+.tag.fund-cash{background:var(--ok-soft);color:var(--ok)}
+.tag.fund-loan{background:var(--accent-soft);color:var(--accent)}
+.tag.fund-bal{background:var(--warn-soft);color:var(--warn)}
+.cl-sec{margin-top:12px}
+.cl-sec:first-child{margin-top:2px}
+.cl-h{font-size:13px;font-weight:800;color:var(--ink);display:flex;justify-content:space-between;gap:8px;align-items:baseline}
+.cl-h .cl-sub{font-size:10.5px;font-weight:600;color:var(--sub)}
+.cl-item{padding:9px 10px;border-radius:11px;background:var(--line2);margin-top:7px}
+.cl-when{font-size:11.5px;font-weight:700;color:var(--ink2)}
+.cl-amt{font-size:16px;font-weight:800;color:var(--ink);font-variant-numeric:tabular-nums;margin-top:1px}
+.cl-fit{font-size:11.5px;color:var(--sub);margin-top:3px;line-height:1.5}
+.cl-fit b.pos,.cl-row b.pos{color:var(--ok)}
+.cl-fit b.neg,.cl-row b.neg{color:var(--bad)}
+.cl-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;padding:6px 0;border-bottom:1px dashed var(--line)}
+.cl-row span{font-size:12.5px;color:var(--ink2)}
+.cl-row b{font-size:14px;font-variant-numeric:tabular-nums;color:var(--ink)}
+.cl-row.strong b{font-size:16px}
+.cl-note{font-size:10.5px;color:var(--sub);line-height:1.5;margin-top:2px}
+.cl-foot{margin-top:9px;font-size:11.5px;color:var(--sub);font-weight:700}
 
 /* 시뮬레이터 */
 .sim{display:flex;flex-direction:column;gap:14px}
@@ -184,6 +210,14 @@ main{max-width:640px;margin:0 auto;padding:12px 12px 8px}
 .sim-head{display:flex;justify-content:space-between;align-items:baseline;gap:6px}
 .sim-head label{font-size:13px;font-weight:700;color:var(--ink2)}
 .sim-head output{font-size:15px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+/* v4.5: 금액을 눌러 원 단위까지 직접 입력 */
+.sim-head output.sim-out{cursor:pointer;border-bottom:1px dashed color-mix(in srgb,var(--accent) 45%,transparent);padding:0 1px}
+.sim-head output.sim-out::after{content:' ✎';font-size:10px;opacity:.65}
+.sim-row.locked .sim-head output.sim-out::after{content:' 🔒';opacity:.7}
+.sim-manual{width:58%;min-width:130px;max-width:220px;text-align:right;font-size:15px;font-weight:800;color:var(--accent);
+  font-variant-numeric:tabular-nums;border:1px solid var(--accent);border-radius:8px;padding:3px 7px;background:var(--card);outline:none}
+.sim-manual:focus{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 22%,transparent)}
+.sim-manual.hidden{display:none!important}
 input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:34px;background:transparent;margin:2px 0 0}
 input[type=range]:focus{outline:none}
 input[type=range]:focus-visible{outline:2px solid var(--accent);outline-offset:5px;border-radius:99px}
@@ -229,6 +263,7 @@ body:not(.edit-mode) .del{display:none!important}
 body.edit-mode .row{background:color-mix(in srgb,var(--warn) 7%,transparent);border-radius:9px;padding-left:7px;padding-right:3px}
 body.edit-mode .row .del{color:var(--bad);background:var(--bad-soft)}
 body.edit-mode .row .del[data-pl-edit]{color:var(--accent);background:var(--accent-soft)}
+body.edit-mode .row .del[data-sc-edit]{color:var(--accent);background:var(--accent-soft)}
 body.edit-mode .row .pill[data-sc-toggle]{border-style:dashed;cursor:pointer}
 .edit-toggle{display:inline-flex;align-items:center;gap:4px;border:1px solid var(--line);background:var(--card);color:var(--sub);
   font-size:11.5px;font-weight:800;padding:5px 10px;border-radius:99px;line-height:1;min-height:28px}
@@ -398,25 +433,25 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
           <button class="mini" id="btnSimReset">초기값</button>
         </div>
       </div>
-      <div class="sim-lock-note" id="simLockNote">🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다.</div>
+      <div class="sim-lock-note" id="simLockNote">🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다. 금액을 눌러 직접 입력하려면 먼저 잠금을 풀어 주세요.</div>
       <div class="sim">
         <div class="sim-row">
-          <div class="sim-head"><label for="simMonthly">월급에서 매달 저축<span class="sim-lock-ico" id="lockico-simMonthly" aria-hidden="true">🔒</span></label><output id="simMonthlyOut">0원</output></div>
+          <div class="sim-head"><label for="simMonthly">월급에서 매달 저축<span class="sim-lock-ico" id="lockico-simMonthly" aria-hidden="true">🔒</span></label><output id="simMonthlyOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
           <div class="sim-slide"><input type="range" id="simMonthly" min="0" max="20000000" step="100000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simMonthly" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simMonthlyHint"></span><span id="simMonthlyMax">2,000만</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simProfit">주식 목표 수익<span class="sim-lock-ico" id="lockico-simProfit" aria-hidden="true">🔒</span></label><output id="simProfitOut">0원</output></div>
-          <div class="sim-slide"><input type="range" id="simProfit" min="0" max="400000000" step="10000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simProfit" aria-hidden="true"></span></div>
+          <div class="sim-head"><label for="simProfit">주식 목표 수익<span class="sim-lock-ico" id="lockico-simProfit" aria-hidden="true">🔒</span></label><output id="simProfitOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simProfit" min="0" max="400000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simProfit" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>+0</span><span></span><span>+4억</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simLoan">입주 시 신규·승계 주담대<span class="sim-lock-ico" id="lockico-simLoan" aria-hidden="true">🔒</span></label><output id="simLoanOut">0원</output></div>
-          <div class="sim-slide"><input type="range" id="simLoan" min="0" max="1000000000" step="10000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simLoan" aria-hidden="true"></span></div>
+          <div class="sim-head"><label for="simLoan">입주 시 신규·승계 주담대<span class="sim-lock-ico" id="lockico-simLoan" aria-hidden="true">🔒</span></label><output id="simLoanOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
+          <div class="sim-slide"><input type="range" id="simLoan" min="0" max="1000000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simLoan" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simLoanHint"></span><span id="simLoanMax">10억</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simExtra">추가 대출 (입주용 시뮬)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut">0원</output></div>
+          <div class="sim-head"><label for="simExtra">추가 대출 (입주용 시뮬)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
           <div class="sim-slide"><input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simExtra" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
         </div>
@@ -432,6 +467,11 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       </div>
     </div>
 
+    <div class="card" id="cashLoanCard">
+      <div class="card-head"><h2>💵 시기별 필요 현금 vs 대출</h2><span class="hint">대출로 되는 돈 / 내가 모아야 할 돈</span></div>
+      <div id="cashLoanBody"></div>
+    </div>
+
     <div class="card">
       <div class="card-head"><h2>납입 일정</h2><button class="mini" id="btnAddSchedule">+ 추가</button></div>
       <div class="list" id="scheduleList"></div>
@@ -440,10 +480,13 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div><label>구분</label><input id="scLabel" placeholder="계약금"></div>
         <div><label>예정일</label><input id="scDate" type="date"></div>
         <div><label>금액</label><input id="scAmount" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>자금 성격</label>
+          <select id="scFund"><option value="현금">💵 현금 (내 돈)</option><option value="대출">🏦 대출</option><option value="잔금">🏠 잔금</option></select>
+        </div>
         <div><label>상태</label>
           <select id="scStatus"><option value="미정">미정</option><option value="예정">예정</option><option value="완료">완료</option></select>
         </div>
-        <div class="full"><label>메모</label><input id="scMemo" placeholder="선택"></div>
+        <div class="full"><label>메모</label><input id="scMemo" placeholder="선택 (예: 자납)"></div>
         <div class="full btn-row"><button class="btn ghost" id="scCancel">취소</button><button class="btn primary" id="scSave">저장</button></div>
       </div>
     </div>
@@ -647,7 +690,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 v4.4 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v4.5 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
@@ -662,7 +705,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.4.0';
+var APP_VERSION='4.5.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -674,18 +717,33 @@ function num(v){
 function clamp(v,a,b){return Math.min(b,Math.max(a,v));}
 function round1(v){return Math.round(v*10)/10;}
 function comma(v){return Math.round(num(v)).toLocaleString('ko-KR');}
+/* v4.5: 금액을 만 원·원 단위까지 정확히 쓴다. (예: 12억 3,456만, 1억 2,345만 6,789원) */
 function fmtShort(v){
-  var n=Math.round(num(v)), a=Math.abs(n);
-  if(a>=1e8){ var x=n/1e8; var s=(Math.abs(x)>=10?x.toFixed(1):x.toFixed(2)).replace(/\.0+$/,'').replace(/(\.\d)0$/,'$1'); return s+'억'; }
-  if(a>=1e4){ return Math.round(n/1e4).toLocaleString('ko-KR')+'만'; }
-  return n.toLocaleString('ko-KR');
+  var n=Math.round(num(v)), a=Math.abs(n), neg=n<0, s;
+  if(a>=1e8){
+    var eok=Math.floor(a/1e8), rem=a%1e8, man=Math.floor(rem/1e4), won=rem%1e4;
+    s=eok+'억'+(man>0?' '+man.toLocaleString('ko-KR')+'만':'')+(won>0?' '+won.toLocaleString('ko-KR')+'원':'');
+  }else if(a>=1e4){
+    var m2=Math.floor(a/1e4), w2=a%1e4;
+    s=m2.toLocaleString('ko-KR')+'만'+(w2>0?' '+w2.toLocaleString('ko-KR')+'원':'');
+  }else{
+    s=a.toLocaleString('ko-KR')+'원';
+  }
+  return (neg?'-':'')+s;
+}
+/* 차트 눈금·막대 위 라벨 전용 — 좁은 자리에서 글자가 겹치지 않게 억/만으로 줄인다. */
+function fmtAxis(v){
+  var n=Math.round(num(v)), a=Math.abs(n), neg=n<0, s;
+  if(a>=1e8){ var x=a/1e8; s=(x>=10?x.toFixed(1):x.toFixed(2)).replace(/\.0+$/,'').replace(/(\.\d)0$/,'$1')+'억'; }
+  else if(a>=1e4){ s=Math.round(a/1e4).toLocaleString('ko-KR')+'만'; }
+  else { s=a.toLocaleString('ko-KR'); }
+  return (neg?'-':'')+s;
 }
 function fmtWon(v){
   var n=Math.round(num(v)); var neg=n<0; var a=Math.abs(n); var s;
   if(a>=1e8){
-    var eok=Math.floor(a/1e8), man=Math.round((a%1e8)/1e4);
-    if(man>=10000){ eok+=1; man-=10000; }
-    s=eok+'억'+(man>0?' '+man.toLocaleString('ko-KR')+'만':'')+'원';
+    var eok=Math.floor(a/1e8), rem=a%1e8, man=Math.floor(rem/1e4), won=rem%1e4;
+    s=eok+'억'+(man>0?' '+man.toLocaleString('ko-KR')+'만':'')+(won>0?' '+won.toLocaleString('ko-KR')+'원':'원');
   }else if(a>=1e4){
     var m=Math.floor(a/1e4), w=a%1e4;
     s=m.toLocaleString('ko-KR')+'만'+(w>0?' '+w.toLocaleString('ko-KR')+'원':'원');
@@ -739,7 +797,10 @@ function normalize(o){
       rate:(l.rate===''||l.rate==null)?null:num(l.rate), memo:l.memo||''};
   }).filter(function(l){return l.date||l.principal||l.interest||l.memo;});
   if(Array.isArray(o.schedule)) s.schedule=o.schedule.map(function(x){
-    return {id:x.id||uid(), label:x.label||'', dueDate:x.dueDate||'', amount:num(x.amount), status:x.status||'미정', memo:x.memo||''};
+    var rawMemo=String(x.memo||''), memo=memoNoTag(rawMemo), tag=fundTagOf(rawMemo);
+    var it={id:x.id||uid(), label:x.label||'', dueDate:x.dueDate||'', amount:num(x.amount), status:x.status||'미정', memo:memo};
+    it.fund = (x.fund && FUNDS.indexOf(x.fund)>=0) ? x.fund : (tag || inferFund(it.label, memo));
+    return it;
   }).filter(function(x){return x.label||x.amount;});
   if(Array.isArray(o.monthly)) s.monthly=o.monthly.map(function(x){
     return {id:x.id||uid(), month:x.month||'', amount:num(x.amount), kind:x.kind||'급여', memo:x.memo||''};
@@ -816,15 +877,52 @@ function simProfit(){
   return (s.stockProfitSim==null||s.stockProfitSim==='') ? num(s.stockTargetProfit) : num(s.stockProfitSim);
 }
 
+/* ----------------------------------------------------------- 납입 일정 자금 성격 (v4.5)
+ * 각 일정이 '현금(내 돈)' / '대출(중도금대출·주담대)' / '잔금' 중 무엇인지 구분한다.
+ * 시트 '납입일정'은 5열(구분·예정일·금액·상태·메모) 그대로 — 사용자가 기본값과 다른 성격을
+ * 고르면 메모 끝에 '#현금'/'#대출'/'#잔금' 표식을 붙여 보존한다.
+ */
+var FUNDS=['현금','대출','잔금'];
+function fundTagOf(memo){ var m=String(memo||'').match(/#(현금|대출|잔금)/); return m?m[1]:''; }
+function memoNoTag(memo){ return String(memo||'').replace(/\s*#(현금|대출|잔금)/g,'').trim(); }
+function inferFund(label,memo){
+  var lab=String(label||''), mem=String(memo||''), t=lab+' '+mem;
+  var tag=fundTagOf(mem); if(tag) return tag;
+  if(/잔금/.test(lab)) return '잔금';
+  if(/자납/.test(t)) return '현금';                 // '자납' 메모가 있으면 대출 차수라도 현금
+  var m=lab.match(/중도금\s*(\d+)\s*차/);
+  if(m) return (parseInt(m[1],10)>=6)?'현금':'대출';   // 1~5차 대출 실행, 6차부터 자납 현금
+  if(/중도금|대출|주담대/.test(t)) return '대출';
+  return '현금';                                    // 계약금·옵션·기타
+}
+function fundOf(x){
+  if(!x) return '현금';
+  if(x.fund && FUNDS.indexOf(x.fund)>=0) return x.fund;
+  return inferFund(x.label,x.memo);
+}
+function fundBadge(x){
+  var f=fundOf(x);
+  var ico=f==='현금'?'💵':(f==='대출'?'🏦':'🏠');
+  var cls=f==='현금'?'fund-cash':(f==='대출'?'fund-loan':'fund-bal');
+  return '<span class="tag fund '+cls+'">'+ico+' '+f+'</span>';
+}
+function memoForSheet(x){
+  var base=memoNoTag(x&&x.memo);
+  var f=fundOf(x);
+  return (f!==inferFund(x&&x.label, base)) ? (base?base+' ':'')+'#'+f : base;
+}
+
 /* ----------------------------------------------------------- 이미 낸 내 돈 */
 /* 완료된 납입일정이 '내 돈'으로 낸 것인지 판단.
-   · 자납·직접·현금·옵션 → 내 돈
-   · 중도금·대출·주담대 → 대출로 실행된 것(잔액이 남아 목표 안에 포함)
-   · 그 외(계약금·잔금 등) → 내 돈 */
+   · 자금 성격이 '대출' → 대출로 실행된 것(잔액이 남아 목표 안에 포함) → 내 돈 아님
+   · '현금'·'잔금' → 내 돈
+   · 성격이 없는 예전 자료는 이름·메모로 판별(자납·직접·현금·옵션 → 내 돈, 중도금·대출·주담대 → 대출) */
 var SELF_PAY_RE=/(자납|직접|현금|옵션)/;
 var LOAN_PAY_RE=/(중도금|대출|주담대)/;
 function isSelfPaidItem(x){
-  var t=String((x&&x.label)||'')+' '+String((x&&x.memo)||'');
+  if(!x) return true;
+  if(x.fund && FUNDS.indexOf(x.fund)>=0) return x.fund!=='대출';
+  var t=String(x.label||'')+' '+String(x.memo||'');
   if(SELF_PAY_RE.test(t)) return true;
   if(LOAN_PAY_RE.test(t)) return false;
   return true;
@@ -927,7 +1025,7 @@ function waterfall(c){
     out.push('<rect x="'+x.toFixed(1)+'" y="'+yTop.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="3" fill="'+b.color+'"'+(b.strong?'':' fill-opacity=".92"')+'/>');
     var span=b.to-b.from;
     if(Math.abs(span)>0){
-      var val=(b.strong?'':(span<0?'−':''))+fmtShort(Math.abs(span));
+      var val=(b.strong?'':(span<0?'−':''))+fmtAxis(Math.abs(span));
       var inside=b.strong&&h>19;
       out.push('<text x="'+cx.toFixed(1)+'" y="'+(inside?(yTop+11).toFixed(1):(yTop-4).toFixed(1))+'" text-anchor="middle" font-size="'+(b.strong?'8.6':'7.8')+'"'+
         (inside?' fill="#fff"':' fill="currentColor"')+' fill-opacity="'+(b.strong?'1':'.72')+'"'+(b.strong?' font-weight="700"':'')+'>'+val+'</text>');
@@ -975,8 +1073,8 @@ function loanChart(){
   out.push('<path d="'+area+'" fill="url(#lg)"/>');
   out.push('<path d="'+line+'" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>');
   pts.forEach(function(p){ out.push('<circle cx="'+X(p).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="2.6" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>'); });
-  out.push('<text x="'+(padL-6)+'" y="'+(Y(mx)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtShort(mx)+'</text>');
-  out.push('<text x="'+(padL-6)+'" y="'+(Y(mn)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtShort(mn)+'</text>');
+  out.push('<text x="'+(padL-6)+'" y="'+(Y(mx)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mx)+'</text>');
+  out.push('<text x="'+(padL-6)+'" y="'+(Y(mn)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mn)+'</text>');
   out.push('<text x="'+padL+'" y="'+(H-6)+'" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(pts[0].x)+'</text>');
   out.push('<text x="'+(W-padR)+'" y="'+(H-6)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(pts[pts.length-1].x)+'</text>');
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="대출 잔액 추이">'+out.join('')+'</svg>';
@@ -1113,14 +1211,15 @@ function renderSummary(){
 function renderSchedule(){
   var list=state.schedule.slice().sort(function(a,b){ return (parseDate(a.dueDate)||0)-(parseDate(b.dueDate)||0); });
   var el=$('#scheduleList'), foot=$('#scheduleFoot');
-  var selfDone=0, loanDone=0, left=0;
+  var selfDone=0, loanDone=0, left=0, leftCash=0, leftLoan=0;
   list.forEach(function(x){
     if(x.status==='완료'){ if(isSelfPaidItem(x)) selfDone+=num(x.amount); else loanDone+=num(x.amount); }
-    else left+=num(x.amount);
+    else { left+=num(x.amount); if(fundOf(x)==='대출') leftLoan+=num(x.amount); else leftCash+=num(x.amount); }
   });
   if(foot){
     foot.innerHTML = list.length
-      ? ('완료 <b>자납 '+fmtWon(selfDone)+'</b>'+(loanDone>0?(' · 대출 납입 '+fmtWon(loanDone)):'')+' · 남은 예정 '+fmtWon(left))
+      ? ('완료 <b>자납 '+fmtWon(selfDone)+'</b>'+(loanDone>0?(' · 대출 납입 '+fmtWon(loanDone)):'')+
+         ' · 남은 예정 '+fmtWon(left)+(left>0?(' (<b>💵 현금 '+fmtWon(leftCash)+'</b>'+(leftLoan>0?(' · 🏦 대출 '+fmtWon(leftLoan)):'')+')'):''))
       : '';
   }
   if(!list.length){ el.innerHTML='<div class="empty">계약금·중도금·잔금 일정을 추가하면 여기에 요약됩니다.</div>'; return; }
@@ -1133,13 +1232,91 @@ function renderSchedule(){
         : '<small><span class="tag loan">대출</span></small>';
     }
     return '<div class="row"><div class="main">'+
-      '<div class="t1">'+esc(x.label||'일정')+'</div>'+
+      '<div class="t1">'+esc(x.label||'일정')+fundBadge(x)+'</div>'+
       '<div class="t2">'+esc(x.dueDate?x.dueDate:'날짜 미정')+(x.memo?' · '+esc(x.memo):'')+'</div></div>'+
       '<div class="amt">'+(x.amount>0?fmtShort(x.amount):'—')+tag+'</div>'+
       '<button class="pill '+cls+'" data-sc-toggle="'+x.id+'" title="누르면 완료/미정 전환">'+esc(x.status||'미정')+'</button>'+
+      '<button class="del" data-sc-edit="'+x.id+'" aria-label="수정">✎</button>'+
       '<button class="del" data-del="schedule" data-id="'+x.id+'" aria-label="삭제">✕</button></div>';
   }).join('');
+  renderCashLoan();
 }
+
+/* ----------------------------------------------------------- 시기별 필요 현금 vs 대출 (v4.5)
+ * ① 입주 전에 내 현금으로 내는 돈 — 그날까지 모이는 월급 누적 + 주식(평가금+목표 수익)으로 감당되는지
+ * ② 입주 시점에 대출로 처리되는 돈 / 현금·전세로 충당해야 하는 돈 / 그중 전세금 회수를 빼고 내가 모아둘 순수 현금
+ */
+function cashLoanPlan(c){
+  var s=state.settings, moveIn=parseDate(s.moveInDate);
+  var list=state.schedule.slice().sort(function(a,b){ return (parseDate(a.dueDate)||0)-(parseDate(b.dueDate)||0); });
+  var upcoming=list.filter(function(x){ return x.status!=='완료'; });
+  var stock=c.stockValue+c.stockProfit;          // 주식 평가금 + 목표 수익 (입주 때 쓸 수 있는 돈)
+  var preItems=[], preTotal=0, spent=0;
+  upcoming.forEach(function(x){
+    var d=parseDate(x.dueDate); if(!d) return;
+    if(fundOf(x)!=='현금') return;
+    if(moveIn && d>=moveIn) return;
+    var months=Math.max(0,daysBetween(today(),d)/30.4375);
+    var salary=Math.round(c.monthly*months/1e4)*1e4;
+    var avail=stock+salary-spent;
+    var gap=avail-num(x.amount);
+    preItems.push({item:x, months:months, salary:salary, avail:avail, gap:gap});
+    spent+=num(x.amount); preTotal+=num(x.amount);
+  });
+  var loanSum=0, balanceSum=0;
+  upcoming.forEach(function(x){
+    var f=fundOf(x);
+    if(f==='대출') loanSum+=num(x.amount);
+    else if(f==='잔금') balanceSum+=num(x.amount);
+  });
+  var existing=c.loanOut, newLoan=c.newLoan;
+  var loanNeed=existing+loanSum;                 // 주담대로 갚·충당해야 할 대출 총액
+  var loanCovered=Math.min(loanNeed,newLoan);
+  var loanOver=Math.max(0,loanNeed-newLoan);
+  var feeSum=c.acqTax+c.deferInt;
+  var cashAtMoveIn=loanOver+balanceSum+feeSum;
+  var pureCash=cashAtMoveIn-c.deposit;           // 음수면 전세금으로 충당되고 남음
+  return {moveIn:moveIn, preItems:preItems, preTotal:preTotal, stock:stock, monthly:c.monthly,
+    loanSum:loanSum, balanceSum:balanceSum, existing:existing, newLoan:newLoan, loanNeed:loanNeed,
+    loanCovered:loanCovered, loanOver:loanOver, feeSum:feeSum, cashAtMoveIn:cashAtMoveIn,
+    deposit:c.deposit, pureCash:pureCash, hasSchedule:list.length>0};
+}
+function wonOrFree(v){ return v>=0?fmtWon(v):('여유 '+fmtWon(-v)); }
+function renderCashLoan(){
+  var el=$('#cashLoanBody'); if(!el) return;
+  var c=calc(), p=cashLoanPlan(c), h=[];
+  var when=p.moveIn?('입주일 '+esc(state.settings.moveInDate)+' 이전'):'입주일 미설정';
+
+  /* ① 입주 전 자납 현금 */
+  h.push('<div class="cl-sec"><div class="cl-h"><span>① 입주 전 자납 현금</span><span class="cl-sub">'+when+'</span></div>');
+  if(!p.preItems.length){
+    h.push('<div class="note" style="margin-top:6px">'+(!p.hasSchedule?'납입 일정을 넣으면 여기에 시기별로 나눠 보여줍니다.':(p.moveIn?'입주 전에 <b>현금</b>으로 낼 예정이 없습니다.':'입주일을 넣으면 입주 전 현금 일정을 계산합니다.'))+'</div>');
+  }else{
+    p.preItems.forEach(function(r){
+      var x=r.item;
+      h.push('<div class="cl-item">'+
+        '<div class="cl-when">'+esc(x.dueDate||'날짜 미정')+' · '+esc(x.label||'일정')+'</div>'+
+        '<div class="cl-amt">'+fmtWon(num(x.amount))+'</div>'+
+        '<div class="cl-fit">그날까지 월급 '+fmtWon(r.salary)+' + 주식 '+fmtWon(p.stock)+' = '+fmtWon(r.avail)+' → '+
+          (r.gap>=0?('<b class="pos">여유 '+fmtWon(r.gap)+'</b>'):('<b class="neg">부족 '+fmtWon(-r.gap)+'</b>'))+'</div></div>');
+    });
+    h.push('<div class="cl-foot">입주 전 자납 현금 합계 '+fmtWon(p.preTotal)+'</div>');
+  }
+  h.push('</div>');
+
+  /* ② 입주 시점 대출 vs 순수 현금 */
+  h.push('<div class="cl-sec"><div class="cl-h"><span>② 입주 시점 대출 vs 순수 현금</span><span class="cl-sub">'+(p.moveIn?esc(state.settings.moveInDate):'입주일 미설정')+'</span></div>');
+  h.push('<div class="cl-row"><span>🏦 대출로 처리</span><b>'+fmtWon(p.loanCovered)+'</b></div>');
+  h.push('<div class="cl-note">예정 중도금 대출 '+fmtWon(p.loanSum)+' + 기존 대출 잔액 '+fmtWon(p.existing)+' = '+fmtWon(p.loanNeed)+' 중 신규·승계 주담대 '+fmtWon(p.newLoan)+'으로 충당</div>');
+  h.push('<div class="cl-row"><span>💵 현금/전세로 충당</span><b>'+fmtWon(p.cashAtMoveIn)+'</b></div>');
+  h.push('<div class="cl-note">주담대 초과분 '+fmtWon(p.loanOver)+' + 입주 잔금 '+fmtWon(p.balanceSum)+' + 취득세·등기비 '+fmtWon(c.acqTax)+' + 중도금 후불이자 '+fmtWon(c.deferInt)+'</div>');
+  h.push('<div class="cl-row strong"><span>내가 실제로 모아둘 순수 현금</span><b class="'+(p.pureCash>0?'neg':'pos')+'">'+wonOrFree(p.pureCash)+'</b></div>');
+  h.push('<div class="cl-note">전세금 회수 '+fmtWon(p.deposit)+'을 빼고 남는 금액'+(p.pureCash<0?' — 전세금으로 충당되고 남습니다':' — 월급·주식으로 모아둘 돈')+'</div>');
+  h.push('<div class="cl-foot">① + ② 합계 '+wonOrFree(p.preTotal+p.pureCash)+'</div>');
+  h.push('</div>');
+  el.innerHTML=h.join('');
+}
+
 
 /* ----------------------------------------------------------- 렌더: 내 대출현황 (v4) */
 var HOUSE_COLORS=['var(--house)','var(--house2)','var(--house3)','var(--house4)'];
@@ -1410,8 +1587,8 @@ function applySimLock(){
   if(n){
     n.classList.toggle('open',!simLocked);
     n.innerHTML = simLocked
-      ? '🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다.'
-      : '🔓 조절 중 — 스크롤하다 값이 바뀌지 않도록, 다 쓰면 <b>🔒 잠금</b>을 눌러 두세요.';
+      ? '🔒 잠김 — 슬라이더를 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 슬라이더만 조절할 수 있습니다. 금액을 눌러 직접 입력하려면 먼저 잠금을 풀어 주세요.'
+      : '🔓 조절 중 — 오른쪽 금액(<b>✎</b>)을 누르면 원 단위까지 직접 입력할 수 있습니다. 다 쓰면 <b>🔒 잠금</b>을 눌러 두세요.';
   }
 }
 function simRelockSoon(id,ms){
@@ -1464,24 +1641,122 @@ $('#btnSimLock').addEventListener('click',function(){
   simLocked=!simLocked;
   simTempOpen={}; SIM_IDS.forEach(simClearTimers);
   applySimLock();
-  toast(simLocked?'시뮬레이터를 잠갔습니다 — 스크롤해도 값이 바뀌지 않습니다':'시뮬레이터 조절 — 다 쓰면 🔒 잠금을 눌러 두세요');
+  toast(simLocked?'시뮬레이터를 잠갔습니다 — 스크롤해도 값이 바뀌지 않습니다':'시뮬레이터 조절 — 금액을 누르면 직접 입력할 수 있습니다');
+});
+
+/* ----------------------------------------------------------- 시뮬레이터 직접 입력 (v4.5)
+ * 오른쪽 금액(output)을 클릭/탭하면 그 자리에서 원 단위 금액을 입력할 수 있다.
+ * 잠금 상태에서는 먼저 풀어야 한다(스크롤 중 오입력 방지).
+ */
+var SIM_KEYS={simMonthly:'monthlyInvestSim', simProfit:'stockProfitSim', simLoan:'newLoanAtMoveIn', simExtra:'additionalLoanSim'};
+function simSetValue(id,v){
+  var key=SIM_KEYS[id]; if(!key) return;
+  var inp=$('#'+id); if(!inp) return;
+  var lo=num(inp.min)||0, hi=num(inp.max)||Math.max(0,v);
+  var n=Math.round(num(v)), c=clamp(n,lo,hi);
+  state.settings[key]=c;
+  commitSummary();
+  if(c!==n) toast('조절 범위는 '+fmtWon(lo)+' ~ '+fmtWon(hi)+'입니다');
+}
+SIM_IDS.forEach(function(id){
+  var out=$('#'+id+'Out'); if(!out) return;
+  var box=null;
+  function close(fireValue){
+    var b=box; if(!b) return;
+    box=null;                       /* blur 재진입으로 removeChild가 두 번 도는 것을 막는다 */
+    var raw=String(b.value), had=raw.replace(/[^0-9]/g,'')!=='';
+    var v=num(raw);
+    if(b.parentNode) b.parentNode.removeChild(b);
+    out.classList.remove('hidden');
+    out.dataset.editing='0';
+    if(fireValue && had) simSetValue(id,v);
+  }
+  function open(){
+    if(box) return;
+    if(!simIsOpen(id)){
+      toast('잠금을 풀면 금액을 직접 입력할 수 있습니다 — 슬라이더를 0.35초 꾹 누르거나 🔒 잠금 버튼');
+      return;
+    }
+    var inp=$('#'+id); if(!inp) return;
+    box=document.createElement('input');
+    box.type='text'; box.inputMode='numeric'; box.autocomplete='off';
+    box.className='sim-manual';
+    box.value=comma(num(inp.value));
+    box.setAttribute('aria-label','금액 직접 입력');
+    box.addEventListener('input',function(){
+      var raw=String(box.value).replace(/[^0-9]/g,'');
+      box.value=raw===''?'':Number(raw).toLocaleString('ko-KR');
+    });
+    box.addEventListener('keydown',function(e){
+      if(e.key==='Enter'){ e.preventDefault(); close(true); }
+      else if(e.key==='Escape'){ e.preventDefault(); close(false); }
+    });
+    box.addEventListener('blur',function(){ close(true); });
+    out.dataset.editing='1';
+    out.parentNode.insertBefore(box,out.nextSibling);
+    out.classList.add('hidden');
+    setTimeout(function(){ if(box){ box.focus(); box.select(); } },0);
+  }
+  out.addEventListener('click',open);
+  out.addEventListener('keydown',function(e){ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); open(); } });
 });
 
 /* ----------------------------------------------------------- 납입 일정 */
+var editingScheduleId=null, scFundTouched=false;
+function resetScheduleForm(){
+  editingScheduleId=null; scFundTouched=false;
+  $('#scSave').textContent='저장';
+  $('#scheduleForm').classList.add('hidden');
+}
+function scAutoFund(){
+  if(scFundTouched) return;
+  $('#scFund').value=inferFund($('#scLabel').value, $('#scMemo').value);
+}
+['#scLabel','#scMemo'].forEach(function(id){ $(id).addEventListener('input',scAutoFund); });
+$('#scFund').addEventListener('change',function(){ scFundTouched=true; });
 $('#btnAddSchedule').addEventListener('click',function(){
-  $('#scheduleForm').classList.toggle('hidden');
+  if(!$('#scheduleForm').classList.contains('hidden')){ resetScheduleForm(); return; }
+  resetScheduleForm();
+  $('#scFund').value='현금'; scFundTouched=false;
+  $('#scheduleForm').classList.remove('hidden');
+  $('#scLabel').focus();
 });
-$('#scCancel').addEventListener('click',function(){ $('#scheduleForm').classList.add('hidden'); });
+$('#scCancel').addEventListener('click',function(){ resetScheduleForm(); });
 $('#scSave').addEventListener('click',function(){
   var label=($('#scLabel').value||'').trim();
   if(!label){ toast('구분을 입력하세요'); return; }
-  state.schedule.push({id:uid(), label:label, dueDate:$('#scDate').value||'', amount:num($('#scAmount').value),
-    status:$('#scStatus').value, memo:($('#scMemo').value||'').trim()});
+  var item={id:editingScheduleId||uid(), label:label, dueDate:$('#scDate').value||'', amount:num($('#scAmount').value),
+    status:$('#scStatus').value, memo:memoNoTag($('#scMemo').value), fund:$('#scFund').value};
+  var wasEdit=!!editingScheduleId;
+  if(wasEdit){
+    var idx=state.schedule.findIndex(function(x){ return x.id===editingScheduleId; });
+    if(idx<0){ resetScheduleForm(); toast('수정할 일정을 찾지 못했습니다'); return; }
+    state.schedule[idx]=item;
+  }else{
+    state.schedule.push(item);
+  }
+  resetScheduleForm();
   $('#scLabel').value=''; $('#scDate').value=''; $('#scAmount').value=''; $('#scMemo').value=''; $('#scStatus').value='미정';
-  $('#scheduleForm').classList.add('hidden');
-  commitSummary(); toast('일정을 추가했습니다');
+  commitSummary(); toast(wasEdit?'일정을 수정했습니다':'일정을 추가했습니다');
 });
 $('#scheduleList').addEventListener('click',function(e){
+  var ed=e.target.closest('[data-sc-edit]');
+  if(ed){
+    if(!editMode){ toast('오른쪽 위 편집을 켜야 수정할 수 있습니다'); return; }
+    var x=state.schedule.filter(function(y){ return y.id===ed.getAttribute('data-sc-edit'); })[0];
+    if(!x) return;
+    editingScheduleId=x.id; scFundTouched=true;
+    $('#scLabel').value=x.label||'';
+    $('#scDate').value=x.dueDate||'';
+    $('#scAmount').value=num(x.amount)?comma(x.amount):'';
+    $('#scMemo').value=memoNoTag(x.memo);
+    $('#scStatus').value=x.status||'미정';
+    $('#scFund').value=fundOf(x);
+    $('#scSave').textContent='수정 저장';
+    $('#scheduleForm').classList.remove('hidden');
+    $('#scLabel').focus();
+    return;
+  }
   var t=e.target.closest('[data-sc-toggle]');
   if(t){
     if(!editMode){ toast('오른쪽 위 편집을 켜야 일정 상태를 바꿀 수 있습니다'); return; }
@@ -1632,6 +1907,7 @@ function setEditMode(on){
   if(!editMode){
     $$('.view .form').forEach(function(f){ f.classList.add('hidden'); });
     if(typeof resetPersonalForm==='function') resetPersonalForm();
+    if(typeof resetScheduleForm==='function') resetScheduleForm();
   }
 }
 $('#btnEditMode').addEventListener('click',function(){
@@ -1847,7 +2123,7 @@ function buildPayload(sentAt){
       return {date:l.date, principal:num(l.principal), interest:num(l.interest),
         balance:l.balance==null?null:num(l.balance), rate:l.rate==null?null:num(l.rate), memo:l.memo||''};
     }),
-    schedule:state.schedule.map(function(x){ return {label:x.label, dueDate:x.dueDate, amount:num(x.amount), status:x.status, memo:x.memo||''}; }),
+    schedule:state.schedule.map(function(x){ return {label:x.label, dueDate:x.dueDate, amount:num(x.amount), status:x.status, memo:memoForSheet(x)}; }),
     monthly:state.monthly.slice().sort(function(a,b){return String(a.month).localeCompare(String(b.month));})
       .map(function(x){ return {month:x.month, amount:num(x.amount), kind:x.kind, memo:x.memo||''}; }),
     stocks:state.stocks.map(function(x){ return {name:x.name, qty:num(x.qty), avgPrice:num(x.avgPrice),
@@ -2211,6 +2487,7 @@ window.addEventListener('pagehide',function(){
 /* 개발·검증용 최소 훅 (개인정보 없음) */
 window.__wp={
   version:APP_VERSION,
+  fmtWon:fmtWon, fmtShort:fmtShort, fmtAxis:fmtAxis,
   getState:function(){ return JSON.parse(JSON.stringify(state)); },
   calc:function(){ return calc(); },
   paidParts:function(){ return paidParts(); },
