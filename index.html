@@ -1139,8 +1139,8 @@ simHandler('#simMonthly','monthly');
 simHandler('#simProfit','profit');
 simHandler('#simLoan','loan');
 $('#btnSimReset').addEventListener('click',function(){
-  state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null; state.settings.newLoanAtMoveIn=0;
-  commitSummary(); toast('시뮬레이터를 초기화했습니다');
+  state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null;
+  commitSummary(); toast('시뮬레이터를 초기값으로 되돌렸습니다');
 });
 
 /* ----------------------------------------------------------- 납입 일정 */
