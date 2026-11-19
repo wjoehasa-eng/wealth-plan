@@ -1,5 +1,5 @@
 /**
- * 입주 자금관리 — 구글 시트 백엔드 (Google Apps Script) v4.0.0
+ * 입주 자금관리 — 구글 시트 백엔드 (Google Apps Script) v4.4.0
  * ==========================================================
  * 쓰는 법 (한 번만, 약 5분)
  *  1. 구글 드라이브에서 새 스프레드시트를 만듭니다.
@@ -22,9 +22,12 @@
  *  · 납입일정      : 구분 | 예정일 | 금액 | 상태 | 메모
  *  · 월별투입      : 월 | 투입금액 | 구분 | 메모
  *  · 주식포트폴리오: 종목명 | 수량 | 매수단가 | 현재가 | 평가금액 | 수익금 | 비고
- *  · 개인대출      : 대출명 | 잔액 | 금리(%) | 비고      (v4 — 주택 대출과 별도로 보는 개인대출)
+ *  · 개인대출      : 대출명 | 잔액 | 금리(%) | 비고 | 입주포함   (v4 — 주택 대출과 별도로 보는 개인대출)
+ *                    v4.4: 5번째 칸 '입주포함' = Y/N. Y면 앱이 그 잔액을 입주 확보 재원으로 계산합니다.
+ *                    4칸짜리 예전 시트는 처음 저장할 때 '입주포함' 열이 자동으로 생깁니다(기존 값은 N).
  *
  * v4 추가: 취득세등기비 · 중도금후불이자 · 추가대출(시뮬) 설정과 '개인대출' 탭.
+ * v4.4 추가: 개인대출 '입주포함' 열(Y/N) — 응답에 personalForHouse 를 넣어 앱이 지원 여부를 압니다.
  *  · 구버전 앱(v3 이하)이 저장하면 개인대출 탭은 그대로 남고, 새 설정 값은 빈 칸이 됩니다.
  *  · 구버전 Code.gs를 그대로 쓰는 앱(v4)도 오류 없이 동작합니다(앱이 기기 저장값으로 대신함).
  *
@@ -34,7 +37,7 @@
 /** 스프레드시트 ID. 시트에 붙인(컨테이너 바인딩) 스크립트라면 비워 두세요. */
 var SHEET_ID = '';
 
-var BACKEND_VERSION = '4.0.0';
+var BACKEND_VERSION = '4.4.0';
 
 var TABS = {
   settings: '설정',
@@ -51,7 +54,7 @@ var HEADERS = {
   schedule: ['구분', '예정일', '금액', '상태', '메모'],
   monthly: ['월', '투입금액', '구분', '메모'],
   stocks: ['종목명', '수량', '매수단가', '현재가', '평가금액', '수익금', '비고'],
-  personal: ['대출명', '잔액', '금리(%)', '비고']
+  personal: ['대출명', '잔액', '금리(%)', '비고', '입주포함']
 };
 
 /** 설정 시트의 한글 항목 ↔ 앱 키 */
@@ -169,7 +172,9 @@ function loadAll_() {
     monthly: readMonthly_(ss),
     stocks: readStocks_(ss),
     extraLoans: readPersonal_(ss),
-    personalTab: !!ss.getSheetByName(TABS.personal)
+    personalTab: !!ss.getSheetByName(TABS.personal),
+    /* v4.4: 개인대출 탭에 '입주포함' 열이 있으면 true — 없으면 앱이 이 기기의 체크 값을 지킵니다 */
+    personalForHouse: hasPersonalForHouseColumn_(ss)
   };
 }
 
@@ -178,7 +183,9 @@ function readTable_(ss, name, headers) {
   if (!sh) return [];
   var last = sh.getLastRow();
   if (last < 2) return [];
-  var values = sh.getRange(2, 1, last - 1, headers.length).getValues();
+  /* 예전 시트(칼럼 수가 모자란 경우)에도 오류 없이: 있는 열까지만 읽는다 */
+  var width = Math.min(headers.length, Math.max(1, sh.getMaxColumns()));
+  var values = sh.getRange(2, 1, last - 1, width).getValues();
   return values.filter(function (row) {
     return row.some(function (c) { return c !== '' && c !== null; });
   });
@@ -255,16 +262,34 @@ function readStocks_(ss) {
   });
 }
 
-/** v4: 개인대출 탭 — 대출명 | 잔액 | 금리(%) | 비고 */
+/** v4.4: 개인대출 탭 — 대출명 | 잔액 | 금리(%) | 비고 | 입주포함(Y/N)
+ *  · 4칸짜리 예전 시트나 값이 빈 칸이면 입주포함 = false 로 읽는다. */
 function readPersonal_(ss) {
   return readTable_(ss, TABS.personal, HEADERS.personal).map(function (r) {
     return {
       name: String(r[0] || ''),
       balance: number_(r[1]),
       rate: (r[2] === '' || r[2] === null || r[2] === undefined) ? null : number_(r[2]),
-      memo: String(r[3] || '')
+      memo: String(r[3] || ''),
+      forHouse: isYes_(r[4])
     };
   });
+}
+
+/** 'Y' / true / 'y' / '예' 를 참으로 본다. 빈 칸·'N'은 거짓(기본값). */
+function isYes_(v) {
+  if (v === true) return true;
+  var s = String(v === null || v === undefined ? '' : v).trim().toUpperCase();
+  return s === 'Y' || s === 'YES' || s === 'TRUE' || s === '1' || s === '예';
+}
+
+/** 개인대출 시트에 '입주포함' 열(5번째)이 준비됐는지 — 없으면 만들지 않고 알리기만 한다. */
+function hasPersonalForHouseColumn_(ss) {
+  var sh = ss.getSheetByName(TABS.personal);
+  if (!sh) return true;              // 탭이 아직 없으면 잃을 체크 값도 없다(안내를 띄우지 않음)
+  if (sh.getMaxColumns() < HEADERS.personal.length) return false;
+  var h = sh.getRange(1, HEADERS.personal.length, 1, 1).getValue();
+  return String(h || '').trim() === HEADERS.personal[HEADERS.personal.length - 1];
 }
 
 /* ------------------------------------------------------------------ 쓰기 */
@@ -386,17 +411,31 @@ function writeStocks_(ss, items) {
   return replaceRows_(ss, TABS.stocks, HEADERS.stocks, rows);
 }
 
-/** v4: 개인대출 쓰기 — 대출명 | 잔액 | 금리(%) | 비고 */
+/** v4.4: 개인대출 쓰기 — 대출명 | 잔액 | 금리(%) | 비고 | 입주포함(Y/N)
+ *  · 예전 4칸 시트는 '입주포함' 열을 새로 만든 뒤 쓴다(기존 행은 빈 칸 = N). */
 function writePersonal_(ss, items) {
+  var sh = tab_(ss, TABS.personal, HEADERS.personal);
+  if (sh.getMaxColumns() < HEADERS.personal.length) {
+    sh.insertColumnsAfter(sh.getMaxColumns(), HEADERS.personal.length - sh.getMaxColumns());
+  }
+  var forHouseCol = HEADERS.personal.length;
+  if (String(sh.getRange(1, forHouseCol).getValue() || '').trim() === '') {
+    sh.getRange(1, forHouseCol).setValue(HEADERS.personal[forHouseCol - 1]).setFontWeight('bold');
+  }
+  var last = sh.getLastRow();
+  if (last > 1) sh.getRange(2, 1, last - 1, HEADERS.personal.length).clearContent();
+  if (!items.length) return 0;
   var rows = items.map(function (x) {
     return [
       x.name ? String(x.name) : '',
       number_(x.balance),
       (x.rate === null || x.rate === undefined || x.rate === '') ? '' : number_(x.rate),
-      x.memo ? String(x.memo) : ''
+      x.memo ? String(x.memo) : '',
+      isYes_(x.forHouse) ? 'Y' : 'N'
     ];
   });
-  return replaceRows_(ss, TABS.personal, HEADERS.personal, rows);
+  sh.getRange(2, 1, rows.length, HEADERS.personal.length).setValues(rows);
+  return rows.length;
 }
 
 /* ------------------------------------------------------------------ 값 정리 */
