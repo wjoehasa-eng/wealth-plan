@@ -886,7 +886,7 @@ function renderStructure(c){
   h.push(srowHtml('신규·승계 주담대', fmtWon(c.newLoan)));
   h.push(srowHtml('주식 평가금', fmtWon(c.stockValue)));
   h.push(srowHtml('주식 수익 (목표)', '+'+fmtWon(c.stockProfit)));
-  h.push(srowHtml('월급 누적 ('+Math.round(c.months)+'개월 × '+fmtShort(c.monthly)+')', '+'+fmtWon(c.future)));
+  h.push(srowHtml('월급 누적'+(c.monthly>0?(' ('+Math.round(c.months)+'개월 × '+fmtShort(c.monthly)+')'):''), '+'+fmtWon(c.future)));
   h.push('<div class="srow total"><span class="sk">확보 재원 합계</span><span class="sv">'+fmtWon(c.sources)+'</span></div>');
   if(c.hasTarget){
     h.push('<div class="srow small"><span class="sk">'+esc('남은 필요 대비 '+(c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap)))+'</span></div>');
@@ -963,7 +963,7 @@ function renderSummary(){
   $('#simLoanHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.newLoanAtMoveIn)/c.goal*100,0,999))+'%'):'';
   $('#simAvail').textContent='확보 '+fmtWon(c.sources);
   var gp=$('#simGap');
-  gp.textContent=(c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap));
+  gp.textContent=c.hasTarget?((c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap))):'';
   gp.className=(c.gap>=0?'pos':'neg');
 
   renderSchedule();
