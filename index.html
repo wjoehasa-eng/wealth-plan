@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v3.0.0
+  입주 자금관리 — 설치형 웹앱(PWA) v4.0.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -9,6 +9,9 @@
         앱 열기/포커스 복귀/20초 주기 자동 Pull · URL 검증 안내
   · v3: 계산식 수정 — 총 목표에서 '이미 낸 내 돈'(대출 원금 상환 + 자납 납입)을 빼고
         남은 필요 자금만 채우는 구조(이중 계산 0). 필요 월 저축액·필요 주식 수익·최종 부족분 표시.
+  · v4: '내 대출현황' 탭 — 주택 관련(파랑) / 별도 개인(주황) 스택 바·항목별 내역,
+        개인대출 추가·수정·삭제. 시뮬레이터 '추가 대출(개인)'은 확보 재원에 더해 부족분을 줄이고
+        동시에 대출현황의 개인대출 합계에 반영. 설정에 취득세·등기비·중도금 후불이자(총 목표에 합산).
 -->
 <html lang="ko">
 <head>
@@ -31,6 +34,8 @@
   --navy:#0f2a4a; --navy2:#1e40af; --accent:#1d4ed8; --accent-soft:#e8eefc;
   --ok:#0f9d58; --ok-soft:#e7f7ee; --warn:#d97706; --warn-soft:#fdf3e3; --bad:#dc2626; --bad-soft:#fdecec;
   --pos:#0f9d58; --neg:#dc2626;
+  --house:#1e3a8a; --house2:#2563eb; --house3:#3b82f6; --house4:#93c5fd;
+  --personal:#c2410c; --personal2:#ea580c; --personal3:#f97316; --personal4:#fb923c;
   --shadow:0 1px 2px rgba(15,23,42,.05),0 8px 24px rgba(15,23,42,.06);
   --r:16px; --r-sm:10px;
 }
@@ -41,6 +46,8 @@
     --navy:#0b1a2c; --navy2:#93b4ff; --accent:#6f8dff; --accent-soft:#16213a;
     --ok:#3ddc90; --ok-soft:#10281c; --warn:#f0b429; --warn-soft:#2a2110; --bad:#ff6b6b; --bad-soft:#2a1414;
     --pos:#3ddc90; --neg:#ff6b6b;
+    --house:#bfdbfe; --house2:#60a5fa; --house3:#3b82f6; --house4:#1d4ed8;
+    --personal:#fed7aa; --personal2:#fb923c; --personal3:#f97316; --personal4:#c2410c;
     --shadow:none;
   }
 }
@@ -233,6 +240,29 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .status.ok{color:var(--ok)} .status.err{color:var(--bad)}
 code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 
+/* 대출현황 */
+.debt-total{display:flex;align-items:baseline;justify-content:space-between;gap:8px}
+.debt-total .k{font-size:11.5px;color:var(--sub);font-weight:700}
+.debt-total .v{font-size:23px;font-weight:800;letter-spacing:-.6px;font-variant-numeric:tabular-nums}
+.debt-bar{display:flex;height:16px;border-radius:99px;overflow:hidden;background:var(--line2);margin-top:10px;gap:1px}
+.debt-bar i{display:block;height:100%;min-width:4px}
+.debt-card .debt-bar{height:13px;margin-top:9px}
+.debt-legend{display:flex;flex-direction:column;gap:7px;margin-top:11px}
+.debt-legend .lg{display:flex;align-items:center;gap:8px;font-size:12px;color:var(--ink2)}
+.debt-legend .lg i{width:9px;height:9px;border-radius:3px;flex:0 0 auto}
+.debt-legend .lg .n{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.debt-legend .lg .a{font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.debt-legend .lg .p{font-size:11px;color:var(--sub);width:38px;text-align:right;flex:0 0 auto;font-variant-numeric:tabular-nums}
+.debt-split{display:flex;gap:14px;margin-top:9px;font-size:12px;color:var(--ink2);flex-wrap:wrap}
+.debt-split b{font-variant-numeric:tabular-nums}
+.debt-split .dot{width:8px;height:8px;border-radius:3px;display:inline-block;margin-right:5px;vertical-align:0}
+.house-c{background:var(--house2)} .personal-c{background:var(--personal2)}
+.bq{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px;vertical-align:1px}
+.bq.house{background:var(--accent-soft);color:var(--accent)}
+.bq.personal{background:var(--warn-soft);color:var(--warn)}
+.mini-bar{height:5px;border-radius:99px;background:var(--line2);overflow:hidden;margin-top:5px}
+.mini-bar i{display:block;height:100%;border-radius:99px}
+
 /* 토스트 */
 .toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);
   padding:10px 16px;border-radius:12px;font-size:13px;font-weight:600;opacity:0;pointer-events:none;transition:.25s;z-index:60;max-width:88vw;text-align:center}
@@ -290,6 +320,14 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       <div class="gap-sub" id="gapSub">목표일과 금액을 먼저 입력하세요.</div>
     </div>
 
+    <div class="card debt-card" id="loanStatusCard">
+      <div class="card-head"><h2>내 대출현황</h2><button class="mini" id="btnDebtDetail">자세히 ›</button></div>
+      <div class="debt-total"><span class="k">총 대출 잔액</span><span class="v" id="debtTotalMini">0원</span></div>
+      <div class="debt-bar" id="debtMiniBar"></div>
+      <div class="debt-split" id="debtMiniSplit"></div>
+      <div class="note" id="debtMiniNote" style="margin-top:8px"></div>
+    </div>
+
     <div class="card">
       <div class="card-head"><h2>자금 구조</h2><span class="hint">목표 → 남은 필요 → 확보</span></div>
       <div class="struct" id="structure"></div>
@@ -322,13 +360,19 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
           <input type="range" id="simLoan" min="0" max="1000000000" step="10000000" value="0">
           <div class="sim-foot"><span>0</span><span id="simLoanHint"></span><span id="simLoanMax">10억</span></div>
         </div>
+        <div class="sim-row">
+          <div class="sim-head"><label for="simExtra">추가 대출 (개인대출)</label><output id="simExtraOut">0원</output></div>
+          <input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0">
+          <div class="sim-foot"><span>0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
+        </div>
       </div>
       <div class="sim-result">
         <span>이 조건의 확보 재원</span>
         <span><b id="simAvail">—</b> <span id="simGap"></span></span>
       </div>
       <div class="note" style="margin-top:10px">
-        계산식: <b>총 목표 − 이미 낸 내 돈</b>(대출 원금 상환 + 자납 납입) <b>= 앞으로 남은 필요 자금</b>. 여기서 전세금 + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월) + 신규 주담대를 빼면 <b>최종 부족분</b>입니다.
+        계산식: <b>총 목표 − 이미 낸 내 돈</b>(대출 원금 상환 + 자납 납입) <b>= 앞으로 남은 필요 자금</b>. 여기서 전세금 + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월) + 신규 주담대 + 추가 대출을 빼면 <b>최종 부족분</b>입니다.
+        <b>추가 대출</b>은 입주 때 빌리는 돈이라 부족분을 줄이지만, 그만큼 <b>대출현황</b>의 개인대출이 늘어납니다.
       </div>
     </div>
 
@@ -369,6 +413,41 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div class="full btn-row"><button class="btn ghost" id="lnCancel">취소</button><button class="btn primary" id="lnSave">저장</button></div>
       </div>
       <div class="note" style="margin-top:10px">잔액은 <b>직전 잔액 − 상환 원금</b>으로 자동 계산됩니다. 실제 통장 잔액이 다르면 직접 고쳐 저장하세요.</div>
+    </div>
+  </section>
+
+  <!-- ============ 대출현황 ============ -->
+  <section class="view hidden" id="view-debt">
+    <div class="card">
+      <div class="card-head"><h2>총 대출 잔액</h2><span class="hint" id="debtTotalHint"></span></div>
+      <div class="debt-total"><span class="k">주택 관련 + 별도 개인</span><span class="v" id="debtTotal">0원</span></div>
+      <div class="debt-bar" id="debtBar"></div>
+      <div class="debt-legend" id="debtLegend"></div>
+    </div>
+
+    <div class="kpis" id="debtKpis"></div>
+
+    <div class="card">
+      <div class="card-head"><h2>주택 관련 대출 <span class="bq house">파랑</span></h2><span class="hint">중도금 잔액 + 주담대</span></div>
+      <div class="list" id="debtHouseList"></div>
+      <div class="note" style="margin-top:9px">잔액은 <b>대출상환</b> 탭의 최근 잔액과 <b>설정·시뮬레이터</b>의 입주 시 신규·승계 주담대에서 가져옵니다.</div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>별도 개인대출 <span class="bq personal">주황</span></h2><button class="mini" id="btnAddPersonal">+ 추가</button></div>
+      <div class="list" id="debtPersonalList"></div>
+      <div class="note" id="debtPersonalFoot" style="margin-top:9px"></div>
+      <div class="form hidden" id="personalForm">
+        <div class="full"><label>대출명</label><input id="plName" placeholder="예: 개인 신용대출"></div>
+        <div><label>잔액 (원)</label><input id="plBalance" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>금리 (연 %)</label><input id="plRate" inputmode="decimal" placeholder="선택"></div>
+        <div class="full"><label>비고</label><input id="plMemo" placeholder="선택"></div>
+        <div class="full btn-row"><button class="btn ghost" id="plCancel">취소</button><button class="btn primary" id="plSave">저장</button></div>
+      </div>
+      <div class="note" style="margin-top:10px">
+        별도 개인대출은 <b>표시 전용</b>입니다 — 입주 자금 부족분 계산에 넣지 않습니다.
+        입주 때 <b>추가로 빌릴 돈</b>은 시뮬레이터의 <b>추가 대출(개인대출)</b>로 조절하고, 여기 합계에 함께 보입니다.
+      </div>
     </div>
   </section>
 
@@ -416,6 +495,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 
 <nav class="tabbar">
   <button class="tab active" data-tab="summary"><span class="ic">📊</span><span class="tx">요약·시뮬</span></button>
+  <button class="tab" data-tab="debt"><span class="ic">🧾</span><span class="tx">대출현황</span></button>
   <button class="tab" data-tab="loans"><span class="ic">🏦</span><span class="tx">대출상환</span></button>
   <button class="tab" data-tab="cash"><span class="ic">💧</span><span class="tx">현금흐름</span></button>
   <button class="tab" data-tab="stocks"><span class="ic">📈</span><span class="tx">주식</span></button>
@@ -437,11 +517,15 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div><label>회수 예정 전세금</label><input id="cfDeposit" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>현재 대출 잔액</label><input id="cfLoan" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>신규·승계 주담대</label><input id="cfNewLoan" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>취득세·등기비</label><input id="cfAcqTax" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>중도금 후불이자</label><input id="cfDeferInt" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>목표 주식 수익</label><input id="cfStockTarget" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>예상 월평균 투입</label><input id="cfMonthly" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>추가 대출 (개인대출)</label><input id="cfExtraLoan" class="money" inputmode="numeric" placeholder="0"></div>
         <div class="full btn-row"><button class="btn primary" id="btnSaveSettings">기본 값 저장</button></div>
         <div class="full note">
-          <b>목표 금액은 총액(분양가+옵션+부대비용)</b>을 넣으세요. 이미 낸 계약금·자납 중도금과
+          <b>목표 금액은 총액(분양가+옵션)</b>을 넣으세요. <b>취득세·등기비</b>와 <b>중도금 후불이자</b>는
+          여기에 더해져 <b>총 목표</b>가 됩니다(이미 포함했다면 0). 이미 낸 계약금·자납 중도금과
           지금까지 갚은 대출 원금은 <b>자동으로 빼고</b> 계산하므로 직접 빼지 않아도 됩니다.
           기존 대출 잔액도 목표 금액 안에 포함된 것으로 보아 <b>따로 또 빼지 않습니다</b>.
         </div>
@@ -472,6 +556,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       </div>
       <div class="status" id="syncStatus"></div>
       <div class="note" id="syncInfo" style="margin-top:4px"></div>
+      <div class="note" id="backendNote" style="margin-top:6px"></div>
       <div class="note" style="margin-top:8px">
         시트를 처음 준비할 때: 구글 시트 → 확장 프로그램 → Apps Script 에 <code>apps-script/Code.gs</code>를 붙여넣고,
         배포 → 새 배포 → 웹 앱(실행: 나 / 액세스: 모든 사용자)으로 배포한 뒤 나오는 <code>.../exec</code> 주소를 위에 넣습니다.
@@ -509,19 +594,22 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     <div class="sec">
       <h3>계산 방식</h3>
       <div class="note">
-        <b>앞으로 남은 필요 자금</b> = 목표 금액 − 이미 낸 내 돈<br>
+        <b>총 목표</b> = 목표 금액(분양가·옵션) + 취득세·등기비 + 중도금 후불이자<br>
+        <b>앞으로 남은 필요 자금</b> = 총 목표 − 이미 낸 내 돈<br>
         · 이미 낸 내 돈 = 대출상환 탭의 상환 원금 합계 + 납입일정에서 <b>완료</b>인 자납·계약금·옵션
           (중도금·대출로 실행된 항목은 제외 — 그 돈은 목표 안에 남은 대출로 잡혀 있습니다)<br>
-        <b>확보 재원</b> = 전세금 회수 + 신규·승계 주담대 + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월)<br>
+        <b>확보 재원</b> = 전세금 회수 + 신규·승계 주담대 + 추가 대출(개인) + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월)<br>
         <b>최종 부족분</b> = 앞으로 남은 필요 자금 − 확보 재원 (음수면 여유)<br>
-        <b>필요 월 저축액</b> = (남은 필요 − 전세금 − 주담대 − 주식 평가금 − 주식 수익) ÷ 남은 개월<br>
-        <b>필요 주식 수익</b> = 남은 필요 − 전세금 − 주담대 − 주식 평가금 − 월급 누적<br>
-        달성률 = (이미 낸 내 돈 + 확보 재원) ÷ 목표 금액. 신호: 100% 이상 = 여유, 97~100% = 근접
+        <b>필요 월 저축액</b> = (남은 필요 − 전세금 − 주담대 − 추가 대출 − 주식 평가금 − 주식 수익) ÷ 남은 개월<br>
+        <b>필요 주식 수익</b> = 남은 필요 − 전세금 − 주담대 − 추가 대출 − 주식 평가금 − 월급 누적<br>
+        달성률 = (이미 낸 내 돈 + 확보 재원) ÷ 총 목표. 신호: 100% 이상 = 여유, 97~100% = 근접<br>
+        <b>내 대출현황</b> = 주택 관련(중도금 잔액 + 신규 주담대, 파랑) + 별도 개인(개인대출 목록 + 추가 대출, 주황).
+        별도 개인대출 목록은 <b>표시만</b> 하고 부족분 계산에는 넣지 않습니다.
       </div>
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 v3.0 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v4.0 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
@@ -536,7 +624,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='3.0.0';
+var APP_VERSION='4.0.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -590,10 +678,11 @@ function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');
 var DEFAULT_SETTINGS={
   goalAmount:0, moveInDate:'', expectedDeposit:0, loanBalance:0,
   stockTargetProfit:0, stockValue:0, monthlyInvest:0,
-  newLoanAtMoveIn:0, stockProfitSim:null, monthlyInvestSim:null, repayExistingLoan:false
+  newLoanAtMoveIn:0, stockProfitSim:null, monthlyInvestSim:null, repayExistingLoan:false,
+  acquisitionTax:0, deferredInterest:0, additionalLoanSim:0   /* v4 */
 };
 function freshState(){
-  return {v:1, settings:Object.assign({},DEFAULT_SETTINGS), loans:[], schedule:[], monthly:[], stocks:[], meta:{demo:false,updatedAt:null}};
+  return {v:1, settings:Object.assign({},DEFAULT_SETTINGS), loans:[], schedule:[], monthly:[], stocks:[], extraLoans:[], meta:{demo:false,updatedAt:null}};
 }
 var state=freshState();
 
@@ -621,6 +710,11 @@ function normalize(o){
     return {id:x.id||uid(), name:x.name||'', qty:num(x.qty), avgPrice:num(x.avgPrice),
       currentPrice:(x.currentPrice===''||x.currentPrice==null)?null:num(x.currentPrice), memo:x.memo||''};
   }).filter(function(x){return x.name||x.qty;});
+  /* v4: 별도 개인대출 목록 */
+  if(Array.isArray(o.extraLoans)) s.extraLoans=o.extraLoans.map(function(l){
+    return {id:l.id||uid(), name:l.name||'', balance:num(l.balance),
+      rate:(l.rate===''||l.rate==null)?null:num(l.rate), memo:l.memo||''};
+  }).filter(function(l){return l.name||num(l.balance);});
   if(o && o.meta) s.meta=Object.assign(s.meta,o.meta);
   return s;
 }
@@ -647,7 +741,7 @@ function persistNow(ts){
 }
 /* 데이터를 바꾸는 모든 곳은 이 두 함수를 통과한다: 화면 → 기기 저장 → 1초 뒤 시트 자동 저장 */
 function commit(){ saveState(); renderAll(); markChanged(); }
-function commitSummary(){ saveState(); renderSummary(); markChanged(); }
+function commitSummary(){ saveState(); renderSummary(); renderDebt(); markChanged(); }
 
 /* ----------------------------------------------------------- 계산 */
 function sortByDate(a,b){ return (parseDate(a.date)||0)-(parseDate(b.date)||0); }
@@ -710,27 +804,31 @@ function paidParts(){
 }
 function calc(){
   var s=state.settings;
-  var goal=num(s.goalAmount), deposit=num(s.expectedDeposit);
+  var acqTax=num(s.acquisitionTax), deferInt=num(s.deferredInterest);   // v4: 입주 부대비용 → 총 목표에 합산
+  var goalBase=num(s.goalAmount), goal=goalBase+acqTax+deferInt;
+  var deposit=num(s.expectedDeposit);
   var sv=stockValueNow(), sp=simProfit();
   var months=monthsLeft(), monthly=simMonthly(), future=Math.round(monthly*months/1e4)*1e4;  // 만원 단위로 정리(원 단위 잔돈 표시 방지)
   var newLoan=num(s.newLoanAtMoveIn);
+  var extraLoan=num(s.additionalLoanSim);               // v4: 추가 대출(개인) — 확보 재원에 더한다
   var pp=paidParts();
   var paid=pp.total;                                    // 이미 낸 내 돈
   var remaining=Math.max(0, goal-paid);                 // 앞으로 남은 필요 자금
-  var sources=deposit+sv+sp+future+newLoan;             // 앞으로 확보 재원
+  var sources=deposit+sv+sp+future+newLoan+extraLoan;   // 앞으로 확보 재원
   var avail=paid+sources;                               // 총 확보(이미 낸 돈 포함)
   var gap=(goal>0)?(avail-goal):0;                      // == sources - remaining
   var rate=goal>0?avail/goal*100:0;
-  var reqMonthly=months>0?Math.max(0,(remaining-deposit-newLoan-sv-sp)/months):0;
-  var reqProfit=Math.max(0, remaining-deposit-newLoan-sv-future);
-  var salaryProfitNeed=Math.max(0, remaining-deposit-newLoan-sv);   // 전세·주담대 외에 월급+주식으로 채울 몫
+  var reqMonthly=months>0?Math.max(0,(remaining-deposit-newLoan-extraLoan-sv-sp)/months):0;
+  var reqProfit=Math.max(0, remaining-deposit-newLoan-extraLoan-sv-future);
+  var salaryProfitNeed=Math.max(0, remaining-deposit-newLoan-extraLoan-sv);   // 전세·주담대·추가대출 외에 월급+주식으로 채울 몫
   var scheduleTotal=0;
   state.schedule.forEach(function(x){ scheduleTotal+=num(x.amount); });
-  return {goal:goal, paid:paid, paidLoanPrincipal:pp.loanPrincipal, paidSelf:pp.selfPay,
+  return {goal:goal, goalBase:goalBase, acqTax:acqTax, deferInt:deferInt, paid:paid,
+    paidLoanPrincipal:pp.loanPrincipal, paidSelf:pp.selfPay,
     paidLoanFunded:pp.loanFunded, selfItems:pp.selfItems, loanItems:pp.loanItems,
     remaining:remaining, need:remaining,
     deposit:deposit, stockValue:sv, stockProfit:sp, months:months, monthly:monthly,
-    future:future, newLoan:newLoan, sources:sources, avail:avail, gap:gap, rate:rate,
+    future:future, newLoan:newLoan, extraLoan:extraLoan, sources:sources, avail:avail, gap:gap, rate:rate,
     reqMonthly:reqMonthly, reqProfit:reqProfit, salaryProfitNeed:salaryProfitNeed, loanOut:loanOutstanding(),
     scheduleTotal:scheduleTotal, hasTarget:goal>0};
 }
@@ -751,6 +849,7 @@ function waterfall(c){
     {label:'월급', v:c.future, color:'#8b5cf6'}
   ];
   if(c.newLoan>0) steps.push({label:'주담대', v:c.newLoan, color:'#f59e0b'});
+  if(c.extraLoan>0) steps.push({label:'추가대출', v:c.extraLoan, color:'#ea580c'});
 
   var bars=[];
   if(c.hasTarget && c.remaining>0) bars.push({label:'남은필요', from:0, to:c.remaining, color:'#94a3b8', need:true});
@@ -865,6 +964,9 @@ function srowHtml(k,v,cls){
 function renderStructure(c){
   var h=[];
   h.push(srowHtml('총 목표 금액', c.hasTarget?fmtWon(c.goal):'미설정'));
+  if(c.acqTax>0||c.deferInt>0){
+    h.push('<div class="srow small"><span class="sk">'+esc('기본 목표 '+fmtWon(c.goalBase)+' + 취득세·등기비 '+fmtWon(c.acqTax)+' + 후불이자 '+fmtWon(c.deferInt))+'</span></div>');
+  }
   if(c.hasTarget && c.scheduleTotal>0){
     var diff=c.scheduleTotal-c.goal, note;
     if(Math.abs(diff)<1) note='납입일정 합계와 일치';
@@ -878,12 +980,13 @@ function renderStructure(c){
   h.push('<div class="srow total"><span class="sk">앞으로 남은 필요 자금</span><span class="sv">'+(c.hasTarget?fmtWon(c.remaining):'—')+'</span></div>');
   if(c.hasTarget){
     h.push('<div class="srow small"><span class="sk">'+esc('남은 대출 잔액 '+fmtUnit(c.loanOut)+' + 남은 중도금·잔금')+'</span></div>');
-    h.push('<div class="srow small"><span class="sk">'+esc('전세금·주담대를 빼면 월급+주식으로 '+fmtWon(c.salaryProfitNeed))+'</span></div>');
+    h.push('<div class="srow small"><span class="sk">'+esc((c.extraLoan>0?'전세금·주담대·추가대출을 빼면 월급+주식으로 ':'전세금·주담대를 빼면 월급+주식으로 ')+fmtWon(c.salaryProfitNeed))+'</span></div>');
   }
 
   h.push('<div class="sdiv">앞으로 확보할 돈</div>');
   h.push(srowHtml('전세금 회수', fmtWon(c.deposit)));
   h.push(srowHtml('신규·승계 주담대', fmtWon(c.newLoan)));
+  h.push(srowHtml('추가 대출 (개인)', fmtWon(c.extraLoan)));
   h.push(srowHtml('주식 평가금', fmtWon(c.stockValue)));
   h.push(srowHtml('주식 수익 (목표)', '+'+fmtWon(c.stockProfit)));
   h.push(srowHtml('월급 누적'+(c.monthly>0?(' ('+Math.round(c.months)+'개월 × '+fmtShort(c.monthly)+')'):''), '+'+fmtWon(c.future)));
@@ -928,6 +1031,7 @@ function renderSummary(){
   }
 
   renderStructure(c);
+  renderLoanStatusMini(c);
 
   var kpis=[
     {k:'전세금 + 주담대', v:fmtShort(c.deposit+c.newLoan), d:'전세 '+fmtUnit(c.deposit)+' + 주담대 '+fmtUnit(c.newLoan)},
@@ -944,6 +1048,7 @@ function renderSummary(){
   $('#waterfall').innerHTML=waterfall(c);
   var leg=[['#94a3b8','남은 필요'],['#2563eb','전세금'],['#0ea5e9','주식 평가'],['#22c55e','주식 수익'],['#8b5cf6','월급 저축']];
   if(c.newLoan>0) leg.push(['#f59e0b','신규 주담대']);
+  if(c.extraLoan>0) leg.push(['#ea580c','추가 대출']);
   leg.push([c.gap>=0?'#0f9d58':'#dc2626','합계']);
   $('#waterfallLegend').innerHTML=leg.map(function(l){return '<span><i style="background:'+l[0]+'"></i>'+l[1]+'</span>';}).join('');
 
@@ -959,8 +1064,14 @@ function renderSummary(){
   $('#simMonthlyOut').textContent=fmtWon(simMonthly());
   $('#simProfitOut').textContent='+'+fmtWon(simProfit());
   $('#simLoanOut').textContent=fmtWon(num(s.newLoanAtMoveIn));
+  var maxExtra=Math.max(300000000, Math.ceil(c.goal*0.6/100000000)*100000000);
+  var sx=$('#simExtra');
+  sx.max=String(maxExtra); $('#simExtraMax').textContent=fmtShort(maxExtra);
+  if(String(sx.value)!==String(Math.round(num(s.additionalLoanSim)))) sx.value=String(clamp(Math.round(num(s.additionalLoanSim)),0,maxExtra));
+  $('#simExtraOut').textContent=fmtWon(num(s.additionalLoanSim));
   $('#simMonthlyHint').textContent=(c.hasTarget&&c.months>0)?('필요 '+fmtShort(c.reqMonthly)):'';
   $('#simLoanHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.newLoanAtMoveIn)/c.goal*100,0,999))+'%'):'';
+  $('#simExtraHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.additionalLoanSim)/c.goal*100,0,999))+'%'):'';
   $('#simAvail').textContent='확보 '+fmtWon(c.sources);
   var gp=$('#simGap');
   gp.textContent=c.hasTarget?((c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap))):'';
@@ -998,6 +1109,105 @@ function renderSchedule(){
       '<button class="pill '+cls+'" data-sc-toggle="'+x.id+'" title="누르면 완료/미정 전환">'+esc(x.status||'미정')+'</button>'+
       '<button class="del" data-del="schedule" data-id="'+x.id+'" aria-label="삭제">✕</button></div>';
   }).join('');
+}
+
+/* ----------------------------------------------------------- 렌더: 내 대출현황 (v4) */
+var HOUSE_COLORS=['var(--house)','var(--house2)','var(--house3)','var(--house4)'];
+var PERSONAL_COLORS=['var(--personal)','var(--personal2)','var(--personal3)','var(--personal4)'];
+function personalLoanTotal(){
+  var t=0; state.extraLoans.forEach(function(l){ t+=num(l.balance); }); return t;
+}
+/* 주택 관련 = 기존 중도금·주택대출 잔액 + 입주 시 신규·승계 주담대 (파랑)
+   별도 개인 = 개인대출 목록 + 시뮬레이터 추가 대출 (주황)
+   ※ 개인대출 목록은 표시 전용 — 부족분 계산에는 넣지 않는다. */
+function debtSummary(c){
+  c=c||calc();
+  var items=[], house=0, personal=0, interest=0, rateCount=0;
+  if(c.loanOut>0) items.push({name:'중도금·주택대출 잔액', group:'house', balance:c.loanOut, rate:null, note:'대출상환 탭 최근 잔액', derived:true});
+  if(c.newLoan>0) items.push({name:'입주 시 신규·승계 주담대', group:'house', balance:c.newLoan, rate:null, note:'설정·시뮬레이터', derived:true});
+  state.extraLoans.forEach(function(l){
+    items.push({name:l.name||'개인대출', group:'personal', balance:num(l.balance),
+      rate:(l.rate==null?null:num(l.rate)), note:l.memo||'', id:l.id});
+  });
+  var extra=num(state.settings.additionalLoanSim);
+  if(extra>0) items.push({name:'추가 대출 (입주 자금)', group:'personal', balance:extra, rate:null, note:'시뮬레이터에서 조절', sim:true});
+  var hi=0, pi=0;
+  items.forEach(function(it){
+    if(it.group==='house'){ house+=it.balance; it.color=HOUSE_COLORS[Math.min(hi++,HOUSE_COLORS.length-1)]; }
+    else { personal+=it.balance; it.color=PERSONAL_COLORS[Math.min(pi++,PERSONAL_COLORS.length-1)]; }
+    if(it.rate!=null && it.rate>0){ interest+=it.balance*it.rate/100; rateCount++; }
+  });
+  var total=house+personal;
+  items.forEach(function(it){ it.pct=total>0?(it.balance/total*100):0; });
+  return {items:items, house:house, personal:personal, total:total, interest:interest, rateCount:rateCount,
+    extra:extra, listTotal:personalLoanTotal(), listCount:state.extraLoans.length};
+}
+function debtSegHtml(d){
+  if(d.total<=0) return '<i style="width:100%;background:var(--line)"></i>';
+  return d.items.filter(function(it){ return it.balance>0; }).map(function(it){
+    return '<i style="width:'+it.pct.toFixed(2)+'%;background:'+it.color+'" title="'+esc(it.name+' · '+fmtWon(it.balance))+'" aria-label="'+esc(it.name+' '+fmtWon(it.balance))+' "></i>';
+  }).join('');
+}
+function debtLegendHtml(d){
+  if(!d.total) return '<div class="note">아직 대출 잔액이 없습니다. 대출상환·설정에 잔액을 넣거나 아래에서 개인대출을 추가하세요.</div>';
+  return d.items.filter(function(it){ return it.balance>0; }).map(function(it){
+    return '<div class="lg"><i style="background:'+it.color+'"></i><span class="n">'+
+      (it.group==='house'?'<span class="bq house">주택</span> ':'<span class="bq personal">개인</span> ')+esc(it.name)+
+      '</span><span class="a">'+fmtWon(it.balance)+'</span><span class="p">'+Math.round(it.pct)+'%</span></div>';
+  }).join('');
+}
+function renderLoanStatusMini(c){
+  var d=debtSummary(c||calc());
+  $('#debtTotalMini').textContent=fmtWon(d.total);
+  $('#debtMiniBar').innerHTML=debtSegHtml(d);
+  $('#debtMiniSplit').innerHTML=
+    '<span><i class="dot house-c"></i>주택 관련 <b>'+fmtWon(d.house)+'</b></span>'+
+    '<span><i class="dot personal-c"></i>별도 개인 <b>'+fmtWon(d.personal)+'</b></span>';
+  $('#debtMiniNote').innerHTML = d.total>0
+    ? ((d.extra>0?('시뮬레이터 <b>추가 대출 '+fmtWon(d.extra)+'</b> 포함. '):'')+'별도 개인대출은 부족분 계산에 넣지 않습니다.')
+    : '대출상환·설정에 잔액을 넣거나 <b>대출현황</b>에서 개인대출을 추가하세요.';
+}
+function debtRowHtml(it, opts){
+  opts=opts||{};
+  var meta=[it.rate==null?'금리 —':('금리 '+it.rate+'%')];
+  if(it.note) meta.push(it.note);
+  var bar='<div class="mini-bar"><i style="width:'+clamp(it.pct,0,100).toFixed(1)+'%;background:'+it.color+'"></i></div>';
+  return '<div class="row"><div class="main">'+
+    '<div class="t1">'+esc(it.name)+'</div>'+
+    '<div class="t2">'+esc(meta.join(' · '))+'</div>'+bar+'</div>'+
+    '<div class="amt">'+fmtShort(it.balance)+'</div>'+
+    (opts.editable?('<button class="del" data-pl-edit="'+it.id+'" aria-label="수정" title="수정">✎</button>'+
+      '<button class="del" data-del="extraLoans" data-id="'+it.id+'" aria-label="삭제">✕</button>'):'')+
+    '</div>';
+}
+function renderDebt(c){
+  var d=debtSummary(c||calc());
+  $('#debtTotal').textContent=fmtWon(d.total);
+  $('#debtTotalHint').textContent=d.items.length?(d.items.length+'건 · 항목별 잔액'):'입력 없음';
+  $('#debtBar').innerHTML=debtSegHtml(d);
+  $('#debtLegend').innerHTML=debtLegendHtml(d);
+
+  var kpis=[
+    {k:'주택 관련 (파랑)', v:fmtWon(d.house), d:'중도금 잔액 + 신규·승계 주담대'},
+    {k:'별도 개인 (주황)', v:fmtWon(d.personal), d:'목록 '+d.listCount+'건 '+fmtShort(d.listTotal)+(d.extra>0?(' + 추가 '+fmtShort(d.extra)):'')},
+    {k:'총 대출', v:fmtWon(d.total), d:'주택 '+Math.round(d.total?d.house/d.total*100:0)+'% · 개인 '+Math.round(d.total?d.personal/d.total*100:0)+'%'},
+    {k:'이자 부담 (연)', v:d.interest>0?fmtWon(d.interest):'—', d:d.interest>0?('월 약 '+fmtWon(d.interest/12)):'개인대출 금리를 넣으면 계산'}
+  ];
+  $('#debtKpis').innerHTML=kpis.map(function(k){
+    return '<div class="kpi"><div class="k">'+k.k+'</div><div class="v" title="'+esc(k.v)+'">'+esc(k.v)+'</div><div class="d">'+esc(k.d)+'</div></div>';
+  }).join('');
+
+  var houseItems=d.items.filter(function(i){return i.group==='house' && i.balance>0;});
+  $('#debtHouseList').innerHTML=houseItems.length?houseItems.map(function(it){ return debtRowHtml(it); }).join('')
+    :'<div class="empty">대출상환 탭의 잔액이나 설정의 신규·승계 주담대를 넣으면 여기에 나옵니다.</div>';
+
+  var personalItems=d.items.filter(function(i){return i.group==='personal';});
+  $('#debtPersonalList').innerHTML=personalItems.length?personalItems.map(function(it){
+    return debtRowHtml(it,{editable:!!it.id});
+  }).join(''):'<div class="empty">별도 개인대출이 없습니다. <b>+ 추가</b>로 대출명·잔액·금리를 넣어 두세요.</div>';
+  $('#debtPersonalFoot').innerHTML=d.personal>0
+    ? ('합계 <b>'+fmtWon(d.personal)+'</b>'+(d.extra>0?(' · 목록 '+fmtShort(d.listTotal)+' + 추가 대출 '+fmtShort(d.extra)):''))
+    : '';
 }
 
 /* ----------------------------------------------------------- 렌더: 대출 */
@@ -1091,28 +1301,29 @@ function renderStocks(){
 }
 
 function renderAll(){
-  renderSummary(); renderLoans(); renderCash(); renderStocks();
+  renderSummary(); renderDebt(); renderLoans(); renderCash(); renderStocks();
   $('#demoBanner').classList.toggle('hidden',!state.meta.demo);
   var info=$('#dataInfo');
   if(info){
     info.textContent = (state.meta.updatedAt?('마지막 저장 '+new Date(state.meta.updatedAt).toLocaleString('ko-KR')):'저장 기록 없음')
-      + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 투입 '+state.monthly.length+'개월 · 종목 '+state.stocks.length+'개';
+      + ' · 상환 '+state.loans.length+'건 · 일정 '+state.schedule.length+'건 · 투입 '+state.monthly.length+'개월 · 종목 '+state.stocks.length+'개 · 개인대출 '+state.extraLoans.length+'건';
   }
   refreshSyncInfo();
   if(typeof renderPrevInfo==='function') renderPrevInfo();
 }
 
 /* ----------------------------------------------------------- 이벤트: 탭 */
+var TAB_KEYS=['summary','debt','loans','cash','stocks'];
+function showTab(tab){
+  $$('.tabbar .tab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
+  TAB_KEYS.forEach(function(k){ $('#view-'+k).classList.toggle('hidden',k!==tab); });
+  if(tab==='debt') renderDebt();
+  window.scrollTo({top:0,behavior:'instant'});
+}
 $$('.tabbar .tab').forEach(function(btn){
-  btn.addEventListener('click',function(){
-    var tab=btn.getAttribute('data-tab');
-    $$('.tabbar .tab').forEach(function(b){ b.classList.toggle('active', b===btn); });
-    ['summary','loans','cash','stocks'].forEach(function(k){
-      $('#view-'+k).classList.toggle('hidden',k!==tab);
-    });
-    window.scrollTo({top:0,behavior:'instant'});
-  });
+  btn.addEventListener('click',function(){ showTab(btn.getAttribute('data-tab')); });
 });
+$('#btnDebtDetail').addEventListener('click',function(){ showTab('debt'); });
 
 /* ----------------------------------------------------------- 금액 입력 */
 function attachMoney(input){
@@ -1132,14 +1343,16 @@ function simHandler(id,key){
     if(key==='monthly') state.settings.monthlyInvestSim=v;
     if(key==='profit') state.settings.stockProfitSim=v;
     if(key==='loan') state.settings.newLoanAtMoveIn=v;
+    if(key==='extra') state.settings.additionalLoanSim=v;
     commitSummary();
   });
 }
 simHandler('#simMonthly','monthly');
 simHandler('#simProfit','profit');
 simHandler('#simLoan','loan');
+simHandler('#simExtra','extra');
 $('#btnSimReset').addEventListener('click',function(){
-  state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null;
+  state.settings.monthlyInvestSim=null; state.settings.stockProfitSim=null; state.settings.additionalLoanSim=0;
   commitSummary(); toast('시뮬레이터를 초기값으로 되돌렸습니다');
 });
 
@@ -1248,6 +1461,52 @@ $('#stSave').addEventListener('click',function(){
   commit(); toast('종목을 추가했습니다');
 });
 
+/* ----------------------------------------------------------- 별도 개인대출 (v4) */
+var editingPersonalId=null;
+function resetPersonalForm(){
+  editingPersonalId=null;
+  $('#plName').value=''; $('#plBalance').value=''; $('#plRate').value=''; $('#plMemo').value='';
+  $('#personalForm').classList.add('hidden');
+  $('#plSave').textContent='저장';
+}
+$('#btnAddPersonal').addEventListener('click',function(){
+  resetPersonalForm();
+  $('#personalForm').classList.remove('hidden');
+  $('#plName').focus();
+});
+$('#plCancel').addEventListener('click',resetPersonalForm);
+$('#debtPersonalList').addEventListener('click',function(e){
+  var b=e.target.closest('[data-pl-edit]');
+  if(!b) return;
+  var id=b.getAttribute('data-pl-edit');
+  var l=state.extraLoans.filter(function(x){return x.id===id;})[0];
+  if(!l) return;
+  editingPersonalId=id;
+  $('#plName').value=l.name||'';
+  $('#plBalance').value=num(l.balance)?comma(l.balance):'';
+  $('#plRate').value=(l.rate==null?'':l.rate);
+  $('#plMemo').value=l.memo||'';
+  $('#plSave').textContent='수정 저장';
+  $('#personalForm').classList.remove('hidden');
+  $('#plName').focus();
+});
+$('#plSave').addEventListener('click',function(){
+  var name=($('#plName').value||'').trim();
+  if(!name){ toast('대출명을 입력하세요'); return; }
+  var balance=num($('#plBalance').value);
+  var rate=($('#plRate').value===''?null:num($('#plRate').value));
+  var memo=($('#plMemo').value||'').trim();
+  if(editingPersonalId){
+    var l=state.extraLoans.filter(function(x){return x.id===editingPersonalId;})[0];
+    if(!l){ resetPersonalForm(); toast('수정할 항목을 찾지 못했습니다'); return; }
+    l.name=name; l.balance=balance; l.rate=rate; l.memo=memo;
+    resetPersonalForm(); commit(); toast('개인대출을 수정했습니다');
+  }else{
+    state.extraLoans.push({id:uid(), name:name, balance:balance, rate:rate, memo:memo});
+    resetPersonalForm(); commit(); toast('개인대출을 추가했습니다');
+  }
+});
+
 /* ----------------------------------------------------------- 설정 모달 */
 function openSettings(){
   var s=state.settings;
@@ -1258,6 +1517,9 @@ function openSettings(){
   $('#cfStockTarget').value=num(s.stockTargetProfit)?comma(s.stockTargetProfit):'';
   $('#cfMonthly').value=num(s.monthlyInvest)?comma(s.monthlyInvest):'';
   $('#cfNewLoan').value=num(s.newLoanAtMoveIn)?comma(s.newLoanAtMoveIn):'';
+  $('#cfAcqTax').value=num(s.acquisitionTax)?comma(s.acquisitionTax):'';
+  $('#cfDeferInt').value=num(s.deferredInterest)?comma(s.deferredInterest):'';
+  $('#cfExtraLoan').value=num(s.additionalLoanSim)?comma(s.additionalLoanSim):'';
   try{ $('#cfScriptUrl').value=localStorage.getItem(LS_URL)||''; }catch(e){}
   var cb=$('#cfAutoSync'); if(cb) cb.checked=autoSync;
   var info=classifyUrl($('#cfScriptUrl').value);
@@ -1285,13 +1547,16 @@ $('#btnSaveSettings').addEventListener('click',function(){
   s.monthlyInvest=num($('#cfMonthly').value);
   s.monthlyInvestSim=null;
   s.newLoanAtMoveIn=num($('#cfNewLoan').value);
+  s.acquisitionTax=num($('#cfAcqTax').value);
+  s.deferredInterest=num($('#cfDeferInt').value);
+  s.additionalLoanSim=num($('#cfExtraLoan').value);
   commit(); toast('기본 값을 저장했습니다');
 });
 
 /* ----------------------------------------------------------- 구글 시트 연결 · 자동 동기화 */
 var SYNC_POLL_MS=20000, SYNC_PUSH_DELAY=1000, SYNC_TICK_MS=5000;
 var sync={url:'',lastPullAt:0,lastPushAt:0,lastOkAt:0,remoteSavedAt:null,dirty:false,
-  pushing:null,pulling:null,pushTimer:null,tickTimer:null,lastAttemptAt:0,lastMsg:'',error:''};
+  pushing:null,pulling:null,pushTimer:null,tickTimer:null,lastAttemptAt:0,lastMsg:'',error:'',backendV4:null};
 var autoSync=true;
 try{ if(localStorage.getItem('wealthplan.autoSync.v1')==='0') autoSync=false; }catch(e){}
 
@@ -1352,6 +1617,18 @@ function refreshSyncInfo(){
   parts.push('시트 '+(sync.remoteSavedAt?stampLabel(sync.remoteSavedAt):'—'));
   parts.push('마지막 확인 '+(sync.lastPullAt?timeLabel(sync.lastPullAt):'—'));
   el.textContent=parts.join(' · ');
+  backendNote();
+}
+/* 연결된 시트가 구버전 Code.gs면 v4 항목이 시트에 저장되지 않는다는 것을 그 자리에서 알린다. */
+function backendNote(){
+  var el=$('#backendNote');
+  if(!el) return;
+  if(sync.backendV4===false){
+    el.textContent='연결된 시트는 구버전 Code.gs입니다 — 별도 개인대출·취득세·후불이자·추가 대출은 시트에 저장되지 않고 이 기기에만 남습니다. 저장소의 새 apps-script/Code.gs로 다시 배포하면 함께 저장됩니다.';
+    el.style.color='var(--warn)'; el.style.fontWeight='600';
+  }else{
+    el.textContent=''; el.style.color=''; el.style.fontWeight='';
+  }
 }
 
 /* 빈 상태 판정 — 값도 행도 없으면 시트를 절대 덮어쓰지 않는다 */
@@ -1359,9 +1636,10 @@ function isBlank(o){
   if(!o) return true;
   var s=o.settings||{};
   var has=num(s.goalAmount)||num(s.expectedDeposit)||num(s.loanBalance)||num(s.stockTargetProfit)||num(s.stockValue)||
-    num(s.monthlyInvest)||num(s.newLoanAtMoveIn)||num(s.monthlyInvestSim)||num(s.stockProfitSim)||(s.moveInDate?1:0);
+    num(s.monthlyInvest)||num(s.newLoanAtMoveIn)||num(s.monthlyInvestSim)||num(s.stockProfitSim)||(s.moveInDate?1:0)||
+    num(s.acquisitionTax)||num(s.deferredInterest)||num(s.additionalLoanSim);
   if(has) return false;
-  return !((o.loans||[]).length||(o.schedule||[]).length||(o.monthly||[]).length||(o.stocks||[]).length);
+  return !((o.loans||[]).length||(o.schedule||[]).length||(o.monthly||[]).length||(o.stocks||[]).length||(o.extraLoans||[]).length);
 }
 
 /* JSONP — Apps Script 응답은 CORS 헤더가 없어 script 태그로 읽는다 */
@@ -1403,6 +1681,7 @@ function confirmSaved(url,sentAt){
     (function attempt(){
       tries++;
       jsonp(url,{action:'load',_t:String(Date.now())},10000).then(function(d){
+        if(d) sync.backendV4 = !!d.backendVersion;
         var s=(d&&d.savedAt)?String(d.savedAt):'';
         if(d && d.ok!==false && s && s>=sentAt){ resolve(true); return; }
         if(tries<3){ setTimeout(attempt,900); } else { resolve(false); }
@@ -1415,7 +1694,7 @@ function confirmSaved(url,sentAt){
 
 function buildPayload(sentAt){
   return {
-    action:'save', app:'wealthplan', version:1, savedAt:sentAt||new Date().toISOString(),
+    action:'save', app:'wealthplan', version:4, appVersion:APP_VERSION, savedAt:sentAt||new Date().toISOString(),
     settings:{
       goalAmount:num(state.settings.goalAmount), moveInDate:state.settings.moveInDate||'',
       expectedDeposit:num(state.settings.expectedDeposit), loanBalance:num(state.settings.loanBalance),
@@ -1423,6 +1702,9 @@ function buildPayload(sentAt){
       monthlyInvest:num(state.settings.monthlyInvest),
       monthlyInvestSim:state.settings.monthlyInvestSim==null?null:num(state.settings.monthlyInvestSim),
       newLoanAtMoveIn:num(state.settings.newLoanAtMoveIn),
+      acquisitionTax:num(state.settings.acquisitionTax),
+      deferredInterest:num(state.settings.deferredInterest),
+      additionalLoanSim:num(state.settings.additionalLoanSim),
       stockProfitSim:state.settings.stockProfitSim==null?null:num(state.settings.stockProfitSim),
       repayExistingLoan:false   // v3: 기존 대출 잔액은 목표 안에 포함 — 따로 빼지 않는다(이중 계산 방지)
     },
@@ -1434,19 +1716,33 @@ function buildPayload(sentAt){
     monthly:state.monthly.slice().sort(function(a,b){return String(a.month).localeCompare(String(b.month));})
       .map(function(x){ return {month:x.month, amount:num(x.amount), kind:x.kind, memo:x.memo||''}; }),
     stocks:state.stocks.map(function(x){ return {name:x.name, qty:num(x.qty), avgPrice:num(x.avgPrice),
-      currentPrice:x.currentPrice==null?null:num(x.currentPrice), memo:x.memo||''}; })
+      currentPrice:x.currentPrice==null?null:num(x.currentPrice), memo:x.memo||''}; }),
+    extraLoans:state.extraLoans.map(function(l){ return {name:l.name||'', balance:num(l.balance),
+      rate:l.rate==null?null:num(l.rate), memo:l.memo||''}; })
   };
 }
 
-function stateFromRemote(d){
+function stateFromRemote(d, keepLocalV4){
   if(!d || typeof d!=='object') throw new Error('응답 형식이 올바르지 않습니다');
-  var incoming={settings:{}, loans:d.loans||[], schedule:d.schedule||[], monthly:d.monthly||[], stocks:d.stocks||[]};
+  /* v4 폴백: 구버전 Code.gs(또는 v3 백업)에는 extraLoans·새 설정 키가 없다.
+     그때는 이 기기의 v4 값을 지우지 않고 그대로 둔다(앱은 localStorage로 정상 동작). */
   var s=d.settings||{};
+  var hasV4 = Array.isArray(d.extraLoans) || !!d.backendVersion ||
+    ('acquisitionTax' in s) || ('deferredInterest' in s) || ('additionalLoanSim' in s);
+  var keepLocal = (keepLocalV4===undefined?true:!!keepLocalV4);
+  /* 시트에 '개인대출' 탭이 아직 없으면(personalTab:false) 이 기기 목록을 지우지 않는다. */
+  var remoteHasPersonal = Array.isArray(d.extraLoans) && d.personalTab !== false;
+  var incoming={settings:{}, loans:d.loans||[], schedule:d.schedule||[], monthly:d.monthly||[], stocks:d.stocks||[],
+    extraLoans: remoteHasPersonal?d.extraLoans:(keepLocal?state.extraLoans:[])};
   ['goalAmount','expectedDeposit','loanBalance','stockTargetProfit','stockValue','monthlyInvest','monthlyInvestSim','newLoanAtMoveIn'].forEach(function(k){
     if(s[k]!==undefined && s[k]!==null && s[k]!=='') incoming.settings[k]=num(s[k]);
   });
   if(s.moveInDate) incoming.settings.moveInDate=String(s.moveInDate);
   if(s.stockProfitSim!==undefined && s.stockProfitSim!==null && s.stockProfitSim!=='') incoming.settings.stockProfitSim=num(s.stockProfitSim);
+  ['acquisitionTax','deferredInterest','additionalLoanSim'].forEach(function(k){
+    if(s[k]!==undefined && s[k]!==null && s[k]!=='') incoming.settings[k]=num(s[k]);
+    else if(keepLocal) incoming.settings[k]=num(state.settings[k]);   /* 시트에 없는 항목은 이 기기 값 유지 */
+  });
   /* v3: 시트의 '기존대출상환반영' 값은 더 이상 계산에 쓰지 않는다(기존 대출 잔액은 목표 안에 포함). */
   incoming.settings.repayExistingLoan=false;
   incoming.meta={demo:false, updatedAt:(d.savedAt?String(d.savedAt):new Date().toISOString()), savedAt:d.savedAt||null};
@@ -1456,7 +1752,7 @@ function stateFromRemote(d){
 /* 백업(JSON) 불러오기 — 시트로는 자동 저장하지 않는다 */
 function applyRemote(d){
   savePrev('백업 파일 불러오기');
-  state=stateFromRemote(d);
+  state=stateFromRemote(d, false);
   persistNow(d.savedAt?String(d.savedAt):null);
   sync.dirty=false;
   renderAll();
@@ -1477,6 +1773,7 @@ function pullFromSheet(opts){
   syncUI('wait','시트에서 최신 내용을 확인하는 중…');
   var p=jsonp(info.url,{action:'load',_t:String(Date.now())},12000).then(function(d){
     if(!d || d.ok===false) throw new Error((d&&d.error)||'시트 응답 오류 — 배포 권한을 확인하세요');
+    sync.backendV4 = !!d.backendVersion || Array.isArray(d.extraLoans);
     sync.lastPullAt=Date.now();
     var remSaved=d.savedAt?String(d.savedAt):null;
     var explicit=(opts.reason==='connect'||opts.reason==='manual');
@@ -1575,6 +1872,7 @@ function pushToSheet(opts){
 
   var p=postJson(info.url,body,20000).then(function(j){
     if(!j || j.ok!==true) throw new Error((j&&j.error)||'저장 실패');
+    sync.backendV4 = !!j.backendVersion;
     return {ok:true, savedAt:sentAt};
   }).catch(function(err){
     return confirmSaved(info.url,sentAt).then(function(ok){
@@ -1770,8 +2068,12 @@ window.__wp={
   getState:function(){ return JSON.parse(JSON.stringify(state)); },
   calc:function(){ return calc(); },
   paidParts:function(){ return paidParts(); },
+  debt:function(){ return debtSummary(); },
+  showTab:function(t){ showTab(t); },
   isBlank:function(){ return isBlank(state); },
   classifyUrl:classifyUrl,
+  payload:function(){ return buildPayload(); },
+  fromRemote:function(d,keep){ return stateFromRemote(d,keep); },
   pull:function(o){ var x=Object.assign({},o||{}); return pullFromSheet(x); },
   push:function(o){ return pushToSheet(Object.assign({verbose:true},o||{})); },
   seed:function(o){ state=normalize(o||{}); persistNow(null); renderAll(); return isBlank(state); },
@@ -1848,7 +2150,8 @@ function demoState(){
   s.settings=Object.assign({},DEFAULT_SETTINGS,{
     goalAmount:1000000000, moveInDate:'2029-03-01', expectedDeposit:300000000,
     loanBalance:183500000, stockTargetProfit:100000000, monthlyInvest:4000000, monthlyInvestSim:6000000,
-    newLoanAtMoveIn:250000000, stockProfitSim:70000000
+    newLoanAtMoveIn:250000000, stockProfitSim:70000000,
+    acquisitionTax:8000000, deferredInterest:3000000, additionalLoanSim:0
   });
   s.loans=[
     {id:uid(),date:'2026-07-15',principal:5500000,interest:640000,total:6140000,balance:194500000,rate:null,memo:'예시 상환'},
@@ -1870,6 +2173,10 @@ function demoState(){
   s.stocks=[
     {id:uid(),name:'예시 배당 ETF',qty:200,avgPrice:15000,currentPrice:17000,memo:'예시'},
     {id:uid(),name:'예시 성장주',qty:20,avgPrice:120000,currentPrice:130000,memo:''}
+  ];
+  s.extraLoans=[
+    {id:uid(),name:'예시 개인 신용대출',balance:30000000,rate:5.2,memo:'예시'},
+    {id:uid(),name:'예시 마이너스통장',balance:5000000,rate:6.1,memo:''}
   ];
   s.meta={demo:true,updatedAt:new Date().toISOString()};
   return s;

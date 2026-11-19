@@ -1,5 +1,5 @@
 /**
- * 입주 자금관리 — 구글 시트 백엔드 (Google Apps Script)
+ * 입주 자금관리 — 구글 시트 백엔드 (Google Apps Script) v4.0.0
  * ==========================================================
  * 쓰는 법 (한 번만, 약 5분)
  *  1. 구글 드라이브에서 새 스프레드시트를 만듭니다.
@@ -17,11 +17,16 @@
  * 코드를 고친 뒤에는 반드시 배포 → 배포 관리 → 수정(연필) → 버전: 새 버전 → 배포.
  *
  * 시트 구성 (없으면 자동으로 만듭니다)
- *  · 설정          : 항목 | 값 | 비고            (앱의 기본 값 8개 + 앱연결시각)
+ *  · 설정          : 항목 | 값 | 비고            (앱의 기본 값 11개 + 앱연결시각)
  *  · 대출상환      : 날짜 | 상환원금 | 납입이자 | 합계 | 거래후잔액 | 금리(%) | 메모
  *  · 납입일정      : 구분 | 예정일 | 금액 | 상태 | 메모
  *  · 월별투입      : 월 | 투입금액 | 구분 | 메모
  *  · 주식포트폴리오: 종목명 | 수량 | 매수단가 | 현재가 | 평가금액 | 수익금 | 비고
+ *  · 개인대출      : 대출명 | 잔액 | 금리(%) | 비고      (v4 — 주택 대출과 별도로 보는 개인대출)
+ *
+ * v4 추가: 취득세등기비 · 중도금후불이자 · 추가대출(시뮬) 설정과 '개인대출' 탭.
+ *  · 구버전 앱(v3 이하)이 저장하면 개인대출 탭은 그대로 남고, 새 설정 값은 빈 칸이 됩니다.
+ *  · 구버전 Code.gs를 그대로 쓰는 앱(v4)도 오류 없이 동작합니다(앱이 기기 저장값으로 대신함).
  *
  * 개인정보: 이 스크립트는 사용자 본인의 스프레드시트에만 읽고 쓰며, 다른 곳으로 보내지 않습니다.
  */
@@ -29,12 +34,15 @@
 /** 스프레드시트 ID. 시트에 붙인(컨테이너 바인딩) 스크립트라면 비워 두세요. */
 var SHEET_ID = '';
 
+var BACKEND_VERSION = '4.0.0';
+
 var TABS = {
   settings: '설정',
   loans: '대출상환',
   schedule: '납입일정',
   monthly: '월별투입',
-  stocks: '주식포트폴리오'
+  stocks: '주식포트폴리오',
+  personal: '개인대출'
 };
 
 var HEADERS = {
@@ -42,7 +50,8 @@ var HEADERS = {
   loans: ['날짜', '상환원금', '납입이자', '합계', '거래후잔액', '금리(%)', '메모'],
   schedule: ['구분', '예정일', '금액', '상태', '메모'],
   monthly: ['월', '투입금액', '구분', '메모'],
-  stocks: ['종목명', '수량', '매수단가', '현재가', '평가금액', '수익금', '비고']
+  stocks: ['종목명', '수량', '매수단가', '현재가', '평가금액', '수익금', '비고'],
+  personal: ['대출명', '잔액', '금리(%)', '비고']
 };
 
 /** 설정 시트의 한글 항목 ↔ 앱 키 */
@@ -56,7 +65,10 @@ var SETTING_KEYS = [
   ['monthlyInvest', '예상월평균투입', '부부 월평균 저축·투입액'],
   ['monthlyInvestSim', '월투입(시뮬)', '시뮬레이터에서 조절한 값'],
   ['newLoanAtMoveIn', '신규주담대(예상)', '입주 시점 신규·승계 주담대'],
+  ['acquisitionTax', '취득세등기비', 'v4: 입주 부대비용(총 목표에 합산)'],
+  ['deferredInterest', '중도금후불이자', 'v4: 입주 시 내는 중도금 이자(총 목표에 합산)'],
   ['stockProfitSim', '주식수익(시뮬)', '시뮬레이터에서 조절한 값'],
+  ['additionalLoanSim', '추가대출(시뮬)', 'v4: 입주 자금에 보태는 개인 추가 대출'],
   ['repayExistingLoan', '기존대출상환반영', 'v3부터 계산에 쓰지 않음(Y/N 기록만 남김)'],
   ['appConnectedAt', '앱연결시각', '앱이 마지막으로 저장한 시각']
 ];
@@ -132,6 +144,7 @@ function status_() {
   return {
     ok: true,
     app: 'wealthplan',
+    backendVersion: BACKEND_VERSION,
     title: ss.getName(),
     tab: ss.getUrl(),
     rows: info,
@@ -147,13 +160,16 @@ function loadAll_() {
   return {
     ok: true,
     app: 'wealthplan',
+    backendVersion: BACKEND_VERSION,
     title: ss.getName(),
     savedAt: settings.appConnectedAt ? String(settings.appConnectedAt) : null,
     settings: settings,
     loans: readLoans_(ss),
     schedule: readSchedule_(ss),
     monthly: readMonthly_(ss),
-    stocks: readStocks_(ss)
+    stocks: readStocks_(ss),
+    extraLoans: readPersonal_(ss),
+    personalTab: !!ss.getSheetByName(TABS.personal)
   };
 }
 
@@ -239,6 +255,18 @@ function readStocks_(ss) {
   });
 }
 
+/** v4: 개인대출 탭 — 대출명 | 잔액 | 금리(%) | 비고 */
+function readPersonal_(ss) {
+  return readTable_(ss, TABS.personal, HEADERS.personal).map(function (r) {
+    return {
+      name: String(r[0] || ''),
+      balance: number_(r[1]),
+      rate: (r[2] === '' || r[2] === null || r[2] === undefined) ? null : number_(r[2]),
+      memo: String(r[3] || '')
+    };
+  });
+}
+
 /* ------------------------------------------------------------------ 쓰기 */
 
 function saveAll_(req) {
@@ -254,9 +282,10 @@ function saveAll_(req) {
     counts.schedule = writeSchedule_(ss, req.schedule || []);
     counts.monthly = writeMonthly_(ss, req.monthly || []);
     counts.stocks = writeStocks_(ss, req.stocks || []);
+    counts.personal = writePersonal_(ss, req.extraLoans || []);
 
     SpreadsheetApp.flush();
-    return { ok: true, app: 'wealthplan', savedAt: savedAt, counts: counts, title: ss.getName() };
+    return { ok: true, app: 'wealthplan', backendVersion: BACKEND_VERSION, savedAt: savedAt, counts: counts, title: ss.getName() };
   } finally {
     lock.releaseLock();
   }
@@ -355,6 +384,19 @@ function writeStocks_(ss, items) {
     return [x.name ? String(x.name) : '', qty, avg, cur, value, value - qty * avg, x.memo ? String(x.memo) : ''];
   });
   return replaceRows_(ss, TABS.stocks, HEADERS.stocks, rows);
+}
+
+/** v4: 개인대출 쓰기 — 대출명 | 잔액 | 금리(%) | 비고 */
+function writePersonal_(ss, items) {
+  var rows = items.map(function (x) {
+    return [
+      x.name ? String(x.name) : '',
+      number_(x.balance),
+      (x.rate === null || x.rate === undefined || x.rate === '') ? '' : number_(x.rate),
+      x.memo ? String(x.memo) : ''
+    ];
+  });
+  return replaceRows_(ss, TABS.personal, HEADERS.personal, rows);
 }
 
 /* ------------------------------------------------------------------ 값 정리 */
