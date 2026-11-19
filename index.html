@@ -712,7 +712,7 @@ function calc(){
   var s=state.settings;
   var goal=num(s.goalAmount), deposit=num(s.expectedDeposit);
   var sv=stockValueNow(), sp=simProfit();
-  var months=monthsLeft(), monthly=simMonthly(), future=monthly*months;
+  var months=monthsLeft(), monthly=simMonthly(), future=Math.round(monthly*months/1e4)*1e4;  // 만원 단위로 정리(원 단위 잔돈 표시 방지)
   var newLoan=num(s.newLoanAtMoveIn);
   var pp=paidParts();
   var paid=pp.total;                                    // 이미 낸 내 돈
