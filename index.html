@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.5.0
+  입주 자금관리 — 설치형 웹앱(PWA) v4.6.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -8,7 +8,7 @@
   · v2: 빈 상태 덮어쓰기 차단 · 연결 시 자동 Pull · 변경 시 1초 뒤 자동 Push ·
         앱 열기/포커스 복귀/20초 주기 자동 Pull · URL 검증 안내
   · v3: 계산식 수정 — 총 목표에서 '이미 낸 내 돈'(대출 원금 상환 + 자납 납입)을 빼고
-        남은 필요 자금만 채우는 구조(이중 계산 0). 필요 월 저축액·필요 주식 수익·최종 부족분 표시.
+        남은 필요 자금만 채우는 구조(이중 계산 0). 필요 월 저축액·필요 주식 자산·최종 부족분 표시.
   · v4: '내 대출현황' 탭 — 주택 관련(파랑) / 별도 개인(주황) 스택 바·항목별 내역,
         개인대출 추가·수정·삭제. 시뮬레이터 '추가 대출(개인)'은 확보 재원에 더해 부족분을 줄이고
         동시에 대출현황의 개인대출 합계에 반영. 설정에 취득세·등기비·중도금 후불이자(총 목표에 합산).
@@ -31,6 +31,13 @@
         좁은 SVG 차트 눈금·막대 라벨만 fmtAxis로 억/만 축약(글자 겹침 방지).
         시뮬레이터 주식 수익·신규 주담대 step 1,000만 → 100만 원, 오른쪽 금액(✎)을 눌러
         원 단위 직접 입력(잠금을 푼 상태에서).
+  · v4.6: '앞으로 필요한 현금' 카드 — ① 입주 전(중도금 6차 등) ② 입주 시점 두 단계로 다시 짜고,
+        상단에 '앞으로 낼 현금 합계 − 모을 돈 = 최종 부족'을 바로 보이게 했다. 최종 부족은 위 KPI와 같은 값.
+        긴 계산식은 <details>로 접고, 슬라이더를 움직이면 카드 숫자가 즉시 바뀐다.
+        '추가 대출(입주용 시뮬)'과 '입주 포함 개인대출'을 '개인 추가 대출 (입주용)' 하나로 묶어
+        구조·브릿지·대출현황에서 한 줄로 표시한다(데이터·시트 호환 유지).
+        '주식 평가금 + 주식 목표 수익'을 '주식 자산 (평가+수익+배당)' 하나로 묶어
+        시뮬레이터 슬라이더·주식 탭·구조·브릿지 모두 한 값으로 다룬다.
 -->
 <html lang="ko">
 <head>
@@ -204,6 +211,41 @@ main{max-width:640px;margin:0 auto;padding:12px 12px 8px}
 .cl-row.strong b{font-size:16px}
 .cl-note{font-size:10.5px;color:var(--sub);line-height:1.5;margin-top:2px}
 .cl-foot{margin-top:9px;font-size:11.5px;color:var(--sub);font-weight:700}
+/* v4.6: 앞으로 필요한 현금 — 2단계 요약 */
+.pc-top{border:1px solid #dbe5fb;background:linear-gradient(180deg,#eef3fc,#f8faff);border-radius:14px;padding:11px 12px 12px}
+@media (prefers-color-scheme:dark){.pc-top{border-color:#243a5c;background:linear-gradient(180deg,#152238,#111a2a)}}
+.pc-line{display:flex;align-items:baseline;justify-content:space-between;gap:10px;padding:2px 0}
+.pc-line .k{font-size:12px;color:var(--ink2);font-weight:700}
+.pc-line .v{font-size:14.5px;font-weight:800;font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink)}
+.pc-line.minus .v{color:var(--ink2)}
+.pc-sub{font-size:10.5px;color:var(--sub);margin:1px 0 3px;line-height:1.45}
+.pc-res{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-top:9px;padding:8px 10px;border-radius:11px;font-weight:800}
+.pc-res .k{font-size:11.5px;letter-spacing:.2px}
+.pc-res .v{font-size:19px;letter-spacing:-.4px;font-variant-numeric:tabular-nums}
+.pc-res.bad{background:var(--bad-soft);color:var(--bad)}
+.pc-res.ok{background:var(--ok-soft);color:var(--ok)}
+.pc-step{margin-top:14px}
+.pc-step-h{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:13px;font-weight:800;color:var(--ink)}
+.pc-step-h em{font-style:normal;font-size:10.5px;font-weight:700;color:var(--sub);text-align:right}
+.pc-step .pc-line{padding:6px 0}
+.pc-step .pc-line .k{font-size:12.5px;font-weight:600}
+.pc-step .pc-line .v{font-size:15.5px}
+.pc-tag{display:block;margin-top:8px;padding:7px 10px;border-radius:10px;font-size:12px;font-weight:800;line-height:1.4}
+.pc-tag.bad{background:var(--bad-soft);color:var(--bad)}
+.pc-tag.ok{background:var(--ok-soft);color:var(--ok)}
+.pc-foot{margin-top:8px;font-size:11px;color:var(--sub);line-height:1.5}
+/* v4.6: 접이식 계산 설명 */
+.dv{margin-top:12px;border-top:1px dashed var(--line);padding-top:9px}
+.dv>summary{cursor:pointer;font-size:11.5px;font-weight:800;color:var(--accent);list-style:none;display:flex;align-items:center;gap:5px}
+.dv>summary::-webkit-details-marker{display:none}
+.dv>summary::before{content:'▸';font-size:10px;transition:.15s}
+.dv[open]>summary::before{content:'▾'}
+.dv-body{margin-top:8px;font-size:11px;color:var(--sub);line-height:1.6}
+.dv-body b{color:var(--ink2)}
+.dv-body .r{display:flex;justify-content:space-between;align-items:baseline;gap:10px;padding:3px 0;border-top:1px solid var(--line2)}
+.dv-body .r:first-child{border-top:0}
+.dv-body .r span:last-child{font-variant-numeric:tabular-nums;white-space:nowrap;color:var(--ink2);font-weight:700}
+.dv-body .n{display:block;padding:2px 0 3px;color:var(--sub);white-space:normal;word-break:break-all}
 
 /* 시뮬레이터 */
 .sim{display:flex;flex-direction:column;gap:14px}
@@ -346,6 +388,24 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 .form .chk small{display:block;font-weight:500;color:var(--sub);font-size:11.5px;line-height:1.4;white-space:normal}
 .mini-bar{height:5px;border-radius:99px;background:var(--line2);overflow:hidden;margin-top:5px}
 .mini-bar i{display:block;height:100%;border-radius:99px}
+/* v4.6: 주식 탭 — 도미노 총액 한 칸 */
+.stock-total{display:flex;flex-direction:column;gap:8px}
+.stock-total label{font-size:11.5px;font-weight:700;color:var(--sub)}
+.stock-total input{width:100%;padding:11px 10px;border:1px solid var(--line);border-radius:10px;background:var(--card);color:var(--ink);
+  font-size:17px;font-weight:800;text-align:right;font-variant-numeric:tabular-nums}
+.stock-total input:focus{outline:2px solid var(--accent);outline-offset:0;border-color:transparent}
+/* v4.6: 개인대출 빠른 선택 칩 + 입주용/별도 요약 */
+.chips{display:flex;flex-wrap:wrap;gap:6px}
+.chip{border:1px solid var(--line);background:var(--card);color:var(--ink2);border-radius:99px;padding:7px 11px;font-size:12.5px;font-weight:700;line-height:1.2}
+.chip.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent)}
+.psplit{display:flex;flex-direction:column;gap:6px;margin-bottom:10px}
+.psplit .ps{display:flex;align-items:center;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:11px;font-size:12px;font-weight:700}
+.psplit .ps b{font-size:14px;font-variant-numeric:tabular-nums;white-space:nowrap}
+.psplit .ps.include{background:var(--accent-soft);color:var(--ink2)}
+.psplit .ps.include b{color:var(--accent)}
+.psplit .ps.separate{background:var(--line2);color:var(--sub)}
+.psplit .ps.separate b{color:var(--ink2)}
+.psplit .ps-sub{font-size:10.5px;color:var(--sub);margin:-2px 0 0 2px}
 
 /* 토스트 */
 .toast{position:fixed;left:50%;bottom:96px;transform:translate(-50%,20px);background:var(--ink);color:var(--bg);
@@ -419,7 +479,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="kpis" id="kpis"></div>
-    <div class="note" id="kpiNote">필요 월 저축액과 필요 주식 수익은 <b>나머지 하나를 계획대로</b> 두었을 때의 값입니다. 둘을 함께 채우면 서로 줄어듭니다.</div>
+    <div class="note" id="kpiNote">필요 월 저축액과 필요 주식 자산은 <b>나머지 하나를 계획대로</b> 두었을 때의 값입니다. 둘을 함께 채우면 서로 줄어듭니다.</div>
 
     <div class="card">
       <div class="card-head"><h2>자금 브릿지</h2><span class="hint">남은 필요 → 확보</span></div>
@@ -442,9 +502,9 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
           <div class="sim-foot"><span>0</span><span id="simMonthlyHint"></span><span id="simMonthlyMax">2,000만</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simProfit">주식 목표 수익<span class="sim-lock-ico" id="lockico-simProfit" aria-hidden="true">🔒</span></label><output id="simProfitOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
+          <div class="sim-head"><label for="simProfit">주식 자산 (평가+수익+배당)<span class="sim-lock-ico" id="lockico-simProfit" aria-hidden="true">🔒</span></label><output id="simProfitOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
           <div class="sim-slide"><input type="range" id="simProfit" min="0" max="400000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simProfit" aria-hidden="true"></span></div>
-          <div class="sim-foot"><span>+0</span><span></span><span>+4억</span></div>
+          <div class="sim-foot"><span id="simProfitMin">0</span><span id="simProfitNote"></span><span id="simProfitMax">4억</span></div>
         </div>
         <div class="sim-row">
           <div class="sim-head"><label for="simLoan">입주 시 신규·승계 주담대<span class="sim-lock-ico" id="lockico-simLoan" aria-hidden="true">🔒</span></label><output id="simLoanOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
@@ -452,7 +512,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
           <div class="sim-foot"><span>0</span><span id="simLoanHint"></span><span id="simLoanMax">10억</span></div>
         </div>
         <div class="sim-row">
-          <div class="sim-head"><label for="simExtra">추가 대출 (입주용 시뮬)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
+          <div class="sim-head"><label for="simExtra">개인 추가 대출 (입주용)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
           <div class="sim-slide"><input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simExtra" aria-hidden="true"></span></div>
           <div class="sim-foot"><span>0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
         </div>
@@ -461,15 +521,20 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <span>이 조건의 확보 재원</span>
         <span><b id="simAvail">—</b> <span id="simGap"></span></span>
       </div>
-      <div class="note" style="margin-top:10px">
-        계산식: <b>총 목표 − 이미 낸 내 돈</b>(대출 원금 상환 + 자납 납입) <b>= 앞으로 남은 필요 자금</b>. 여기서 전세금 + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월) + 신규 주담대 + 추가 대출 + <b>입주 포함 개인대출</b>을 빼면 <b>최종 부족분</b>입니다.
-        <b>추가 대출</b>은 입주 때 빌리는 돈이라 부족분을 줄이지만, 그만큼 <b>대출현황</b>의 개인대출이 늘어납니다.
-        <b>대출현황</b>에서 개인대출에 <b>입주 포함</b>을 체크하면 그 잔액도 같은 방식으로 부족분에서 빼고, 체크하지 않은 <b>별도</b> 개인대출은 대출현황에만 보입니다.
-      </div>
+      <details class="dv">
+        <summary>계산 방식 보기</summary>
+        <div class="dv-body">
+          <b>총 목표</b> − <b>이미 낸 내 돈</b>(대출 원금 상환 + 자납 납입) = <b>앞으로 남은 필요 자금</b>.<br>
+          여기서 <b>전세금 + 주식 자산(평가+수익+배당) + 개인 추가 대출 + (월 투입 × 남은 개월) + 신규·승계 주담대</b>를 빼면 <b>최종 부족분</b>입니다.
+          개인 추가 대출은 <b>대출현황에서 '입주용'으로 체크한 개인대출</b>과 이 슬라이더의 금액을 합친 하나의 값입니다.
+          입주 때 빌리는 돈이라 부족분을 줄이지만, 그만큼 대출현황의 개인대출이 늘어납니다.
+          체크하지 않은 개인대출은 대출현황에만 보입니다.
+        </div>
+      </details>
     </div>
 
     <div class="card" id="cashLoanCard">
-      <div class="card-head"><h2>💵 시기별 필요 현금 vs 대출</h2><span class="hint">대출로 되는 돈 / 내가 모아야 할 돈</span></div>
+      <div class="card-head"><h2>💵 앞으로 필요한 현금 (시기별)</h2><span class="hint">슬라이더 조절 시 실시간 반영</span></div>
       <div id="cashLoanBody"></div>
     </div>
 
@@ -534,21 +599,26 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="card">
-      <div class="card-head"><h2>별도 개인대출 <span class="bq personal">주황</span></h2><button class="mini" id="btnAddPersonal">+ 추가</button></div>
+      <div class="card-head"><h2>개인대출 <span class="bq personal">주황</span></h2><button class="mini" id="btnAddPersonal">+ 추가</button></div>
+      <div class="psplit" id="debtPersonalSplit"></div>
       <div class="list" id="debtPersonalList"></div>
       <div class="note" id="debtPersonalFoot" style="margin-top:9px"></div>
       <div class="form hidden" id="personalForm">
-        <div class="full"><label>대출명</label><input id="plName" placeholder="예: 개인 신용대출"></div>
+        <div class="full"><label>대출명</label><input id="plName" placeholder="예: 공무원연금공단"></div>
+        <div class="full chips" id="plNameChips">
+          <button type="button" class="chip" data-name="공무원연금공단">공무원연금공단</button>
+          <button type="button" class="chip" data-name="교직원공제회">교직원공제회</button>
+          <button type="button" class="chip" data-name="">직접 입력</button>
+        </div>
         <div><label>잔액 (원)</label><input id="plBalance" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>금리 (연 %)</label><input id="plRate" inputmode="decimal" placeholder="선택"></div>
         <div class="full"><label>비고</label><input id="plMemo" placeholder="선택"></div>
-        <label class="full chk" for="plForHouse"><input type="checkbox" id="plForHouse"><span class="chk-tx">입주 자금에 포함<small>체크하면 이 잔액을 확보 재원으로 계산합니다</small></span></label>
+        <label class="full chk" for="plForHouse"><input type="checkbox" id="plForHouse"><span class="chk-tx" id="plForHouseTx">별도 (주택 무관)<small>입주 계산에서 빼고 목록에만 보여 줍니다</small></span></label>
         <div class="full btn-row"><button class="btn ghost" id="plCancel">취소</button><button class="btn primary" id="plSave">저장</button></div>
       </div>
       <div class="note" style="margin-top:10px">
-        <b>입주 자금에 포함</b>을 체크한 개인대출은 잔액을 <b>확보 재원</b>에 더해 최종 부족분·필요 월 저축액·필요 주식 수익을 줄입니다(배지 <b>입주 포함</b>).
-        체크하지 않으면 <b>표시 전용</b>이라 부족분 계산에 넣지 않습니다(배지 <b>별도</b>). 둘 다 이 카드의 주황색 합계에 함께 보입니다.
-        입주 때 <b>추가로 빌릴 돈</b>은 시뮬레이터의 <b>추가 대출(입주용 시뮬)</b>로 조절하세요.
+        <b>개인 추가 대출</b> = 여기서 <b>🏠 입주 자금에 쓰기</b>를 체크한 개인대출 + 시뮬레이터의 <b>개인 추가 대출 (입주용)</b> 슬라이더.
+        둘은 같은 항목이라 화면에서는 합쳐서 한 줄로 보입니다. 체크하지 않은 개인대출(<b>별도 · 주택 무관</b>)은 대출현황에만 보이고 부족분 계산에는 넣지 않습니다.
       </div>
     </div>
   </section>
@@ -556,6 +626,16 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
   <!-- ============ 주식 ============ -->
   <section class="view hidden" id="view-stocks">
     <div class="kpis" id="stockKpis"></div>
+
+    <div class="card">
+      <div class="card-head"><h2>주식 자산 (도미노 총액)</h2><span class="hint">평가 + 실현 + 배당</span></div>
+      <div class="stock-total">
+        <label for="stAssetTotal">도미노 앱에 뜨는 총액</label>
+        <input id="stAssetTotal" class="money" inputmode="numeric" placeholder="0">
+        <button class="btn primary" id="btnSaveStockTotal">이 금액으로 저장</button>
+      </div>
+      <div class="note" id="stAssetNote" style="margin-top:8px"></div>
+    </div>
     <div class="card">
       <div class="card-head"><h2>보유 종목</h2><button class="mini" id="btnAddStock">+ 추가</button></div>
       <div class="list" id="stockList"></div>
@@ -567,7 +647,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div><label>비고</label><input id="stMemo" placeholder="선택"></div>
         <div class="full btn-row"><button class="btn ghost" id="stCancel">취소</button><button class="btn primary" id="stSave">저장</button></div>
       </div>
-      <div class="note" style="margin-top:10px">평가금은 <b>요약 탭 확보 자산</b>과 입주 시점 예상액에 자동으로 합산됩니다.</div>
+      <div class="note" style="margin-top:10px">종목을 넣으면 평가금이 <b>주식 자산</b>에 합산됩니다. 위 칸에 <b>도미노 총액</b>을 넣으면 그 금액을 그대로 씁니다(둘 중 하나만 쓰면 됩니다).</div>
     </div>
   </section>
 </main>
@@ -597,9 +677,9 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div><label>신규·승계 주담대</label><input id="cfNewLoan" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>취득세·등기비</label><input id="cfAcqTax" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>중도금 후불이자</label><input id="cfDeferInt" class="money" inputmode="numeric" placeholder="0"></div>
-        <div><label>목표 주식 수익</label><input id="cfStockTarget" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>주식 자산 (도미노 총액)</label><input id="cfStockTarget" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>예상 월평균 투입</label><input id="cfMonthly" class="money" inputmode="numeric" placeholder="0"></div>
-        <div><label>추가 대출 (입주용 시뮬)</label><input id="cfExtraLoan" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>개인 추가 대출 (입주용)</label><input id="cfExtraLoan" class="money" inputmode="numeric" placeholder="0"></div>
         <div class="full btn-row"><button class="btn primary" id="btnSaveSettings">기본 값 저장</button></div>
         <div class="full note">
           <b>목표 금액은 총액(분양가+옵션)</b>을 넣으세요. <b>취득세·등기비</b>와 <b>중도금 후불이자</b>는
@@ -680,18 +760,18 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <b>앞으로 남은 필요 자금</b> = 총 목표 − 이미 낸 내 돈<br>
         · 이미 낸 내 돈 = 대출상환 탭의 상환 원금 합계 + 납입일정에서 <b>완료</b>인 자납·계약금·옵션
           (중도금·대출로 실행된 항목은 제외 — 그 돈은 목표 안에 남은 대출로 잡혀 있습니다)<br>
-        <b>확보 재원</b> = 전세금 회수 + 신규·승계 주담대 + 추가 대출(입주용 시뮬) + <b>입주 포함 개인대출</b> + 주식 평가금 + 주식 수익 + (월 투입 × 남은 개월)<br>
+        <b>확보 재원</b> = 전세금 회수 + 신규·승계 주담대 + <b>개인 추가 대출</b>(대출현황 '입주용' + 시뮬레이터) + <b>주식 자산</b>(평가+수익+배당) + (월 투입 × 남은 개월)<br>
         <b>최종 부족분</b> = 앞으로 남은 필요 자금 − 확보 재원 (음수면 여유)<br>
-        <b>필요 월 저축액</b> = (남은 필요 − 전세금 − 주담대 − 추가 대출 − 입주 포함 개인대출 − 주식 평가금 − 주식 수익) ÷ 남은 개월<br>
-        <b>필요 주식 수익</b> = 남은 필요 − 전세금 − 주담대 − 추가 대출 − 입주 포함 개인대출 − 주식 평가금 − 월급 누적<br>
+        <b>필요 월 저축액</b> = (남은 필요 − 전세금 − 주담대 − 개인 추가 대출 − 주식 자산) ÷ 남은 개월<br>
+        <b>필요 주식 자산</b> = 남은 필요 − 전세금 − 주담대 − 개인 추가 대출 − 월급 누적<br>
         달성률 = (이미 낸 내 돈 + 확보 재원) ÷ 총 목표. 신호: 100% 이상 = 여유, 97~100% = 근접<br>
-        <b>내 대출현황</b> = 주택 관련(중도금 잔액 + 신규 주담대, 파랑) + 별도 개인(개인대출 목록 + 추가 대출, 주황).<br>
-        개인대출 중 <b>입주 포함</b>을 체크한 것만 확보 재원에 넣고, 체크하지 않은 <b>별도</b> 개인대출은 <b>표시만</b> 합니다.
+        <b>내 대출현황</b> = 주택 관련(중도금 잔액 + 신규 주담대, 파랑) + 개인(개인대출 목록 + 개인 추가 대출, 주황).<br>
+        개인대출 중 <b>🏠 입주 자금에 쓰기</b>를 체크한 것만 확보 재원에 넣고, 체크하지 않은 <b>별도(주택 무관)</b> 개인대출은 <b>표시만</b> 합니다.
       </div>
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 v4.5 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v4.6 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
@@ -706,7 +786,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.5.0';
+var APP_VERSION='4.6.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -989,15 +1069,14 @@ function statusOf(c){
 /* ----------------------------------------------------------- 차트 */
 /* 남은 필요(막대 1) → 전세금·주식·주식수익·월급·주담대 누적 → 합계 */
 function waterfall(c){
+  var credit=c.extraLoan+c.personalHouse;
   var steps=[
     {label:'전세금', v:c.deposit, color:'#2563eb'},
-    {label:'주식', v:c.stockValue, color:'#0ea5e9'},
-    {label:'주식수익', v:c.stockProfit, color:'#22c55e'},
+    {label:'주식 자산', v:c.stockValue+c.stockProfit, color:'#0ea5e9'},
     {label:'월급', v:c.future, color:'#8b5cf6'}
   ];
   if(c.newLoan>0) steps.push({label:'주담대', v:c.newLoan, color:'#f59e0b'});
-  if(c.extraLoan>0) steps.push({label:'추가대출', v:c.extraLoan, color:'#ea580c'});
-  if(c.personalHouse>0) steps.push({label:'개인대출', v:c.personalHouse, color:'#c2410c'});
+  if(credit>0) steps.push({label:'개인대출', v:credit, color:'#c2410c'});
 
   var bars=[];
   if(c.hasTarget && c.remaining>0) bars.push({label:'남은필요', from:0, to:c.remaining, color:'#94a3b8', need:true});
@@ -1105,16 +1184,17 @@ function renderStructure(c){
   h.push('<div class="srow total"><span class="sk">앞으로 남은 필요 자금</span><span class="sv">'+(c.hasTarget?fmtWon(c.remaining):'—')+'</span></div>');
   if(c.hasTarget){
     h.push('<div class="srow small"><span class="sk">'+esc('남은 대출 잔액 '+fmtUnit(c.loanOut)+' + 남은 중도금·잔금')+'</span></div>');
-    h.push('<div class="srow small"><span class="sk">'+esc((c.extraLoan>0||c.personalHouse>0?'전세금·주담대·추가대출·입주 포함 개인대출을 빼면 월급+주식으로 ':'전세금·주담대를 빼면 월급+주식으로 ')+fmtWon(c.salaryProfitNeed))+'</span></div>');
+    h.push('<div class="srow small"><span class="sk">'+esc((c.extraLoan+c.personalHouse>0?'전세금·주담대·개인 추가 대출을 빼면 월급+주식으로 ':'전세금·주담대를 빼면 월급+주식으로 ')+fmtWon(c.salaryProfitNeed))+'</span></div>');
   }
 
   h.push('<div class="sdiv">앞으로 확보할 돈</div>');
   h.push(srowHtml('전세금 회수', fmtWon(c.deposit)));
   h.push(srowHtml('신규·승계 주담대', fmtWon(c.newLoan)));
-  h.push(srowHtml('추가 대출 (입주용 시뮬)', fmtWon(c.extraLoan)));
-  if(c.personalHouse>0) h.push(srowHtml('개인대출 (입주 포함 '+c.personalHouseCount+'건)', fmtWon(c.personalHouse)));
-  h.push(srowHtml('주식 평가금', fmtWon(c.stockValue)));
-  h.push(srowHtml('주식 수익 (목표)', '+'+fmtWon(c.stockProfit)));
+  h.push(srowHtml('개인 추가 대출 (입주용)', fmtWon(c.extraLoan+c.personalHouse)));
+  if(c.personalHouse>0 && c.extraLoan>0){
+    h.push('<div class="srow small"><span class="sk">'+esc('목록 입주용 '+fmtWon(c.personalHouse)+' ('+c.personalHouseCount+'건) + 시뮬레이터 '+fmtWon(c.extraLoan))+'</span></div>');
+  }
+  h.push(srowHtml('주식 자산 (평가+수익+배당)', fmtWon(c.stockValue+c.stockProfit)));
   h.push(srowHtml('월급 누적'+(c.monthly>0?(' ('+Math.round(c.months)+'개월 × '+fmtShort(c.monthly)+')'):''), '+'+fmtWon(c.future)));
   h.push(srowHtml('확보 재원 합계', fmtWon(c.sources), 'total'));
   if(c.personalSeparate>0){
@@ -1166,8 +1246,8 @@ function renderSummary(){
     {k:'전세금 + 주담대', v:fmtShort(c.deposit+c.newLoan), d:'전세 '+fmtUnit(c.deposit)+' + 주담대 '+fmtUnit(c.newLoan)},
     {k:'필요 월 저축액', v:(c.hasTarget&&c.months>0)?fmtShort(c.reqMonthly):'—',
       d:(c.hasTarget&&c.months>0)?('계획 월 '+fmtShort(c.monthly)+' · '+(c.monthly>=c.reqMonthly?'충분':'부족 '+fmtShort(c.reqMonthly-c.monthly))):'기간 미설정', accent:true},
-    {k:'필요 주식 수익', v:c.hasTarget?fmtShort(c.reqProfit):'—',
-      d:c.hasTarget?('목표 '+signed(c.stockProfit)+' · '+(c.stockProfit>=c.reqProfit?'충분':'부족 '+fmtShort(c.reqProfit-c.stockProfit))):'목표 미설정'},
+    {k:'필요 주식 자산', v:c.hasTarget?fmtShort(c.reqProfit):'—',
+      d:c.hasTarget?('주식 자산 '+signed(c.stockValue+c.stockProfit)+' · '+((c.stockValue+c.stockProfit)>=c.reqProfit?'충분':'부족 '+fmtShort(c.reqProfit-(c.stockValue+c.stockProfit)))):'목표 미설정'},
     {k:'이미 낸 내 돈', v:fmtWon(c.paid), d:'상환 '+fmtUnit(c.paidLoanPrincipal)+' + 자납 '+fmtUnit(c.paidSelf)}
   ];
   $('#kpis').innerHTML=kpis.map(function(k){
@@ -1175,10 +1255,9 @@ function renderSummary(){
   }).join('');
 
   $('#waterfall').innerHTML=waterfall(c);
-  var leg=[['#94a3b8','남은 필요'],['#2563eb','전세금'],['#0ea5e9','주식 평가'],['#22c55e','주식 수익'],['#8b5cf6','월급 저축']];
+  var leg=[['#94a3b8','남은 필요'],['#2563eb','전세금'],['#0ea5e9','주식 자산'],['#8b5cf6','월급 저축']];
   if(c.newLoan>0) leg.push(['#f59e0b','신규 주담대']);
-  if(c.extraLoan>0) leg.push(['#ea580c','추가 대출']);
-  if(c.personalHouse>0) leg.push(['#c2410c','개인대출 (입주 포함)']);
+  if(c.extraLoan+c.personalHouse>0) leg.push(['#c2410c','개인 추가 대출']);
   leg.push([c.gap>=0?'#0f9d58':'#dc2626','합계']);
   $('#waterfallLegend').innerHTML=leg.map(function(l){return '<span><i style="background:'+l[0]+'"></i>'+l[1]+'</span>';}).join('');
 
@@ -1186,13 +1265,19 @@ function renderSummary(){
   var maxMonthly=Math.max(20000000, Math.ceil((c.reqMonthly*1.5)/1000000)*1000000);
   var maxLoan=Math.max(500000000, Math.ceil(c.goal*0.8/100000000)*100000000);
   var sm=$('#simMonthly'), sp=$('#simProfit'), sl=$('#simLoan');
+  var stockNow=stockValueNow(), stockTotal=stockNow+simProfit();
+  var stockMin=Math.min(stockNow,400000000), stockMax=Math.max(400000000,Math.ceil((stockNow+200000000)/1e8)*1e8);
   sm.max=String(maxMonthly); $('#simMonthlyMax').textContent=fmtShort(maxMonthly);
   sl.max=String(maxLoan); $('#simLoanMax').textContent=fmtShort(maxLoan);
+  sp.min=String(stockMin); sp.max=String(stockMax);
+  if($('#simProfitMin')) $('#simProfitMin').textContent=fmtShort(stockMin);
+  if($('#simProfitMax')) $('#simProfitMax').textContent=fmtShort(stockMax);
+  if($('#simProfitNote')) $('#simProfitNote').textContent=stockNow>0?('현재 평가 '+fmtShort(stockNow)):'';
   if(String(sm.value)!==String(Math.round(simMonthly()))) sm.value=String(clamp(Math.round(simMonthly()),0,maxMonthly));
-  if(String(sp.value)!==String(Math.round(simProfit()))) sp.value=String(clamp(Math.round(simProfit()),0,400000000));
+  if(String(sp.value)!==String(Math.round(stockTotal))) sp.value=String(clamp(Math.round(stockTotal),stockMin,stockMax));
   if(String(sl.value)!==String(Math.round(num(s.newLoanAtMoveIn)))) sl.value=String(clamp(Math.round(num(s.newLoanAtMoveIn)),0,maxLoan));
   $('#simMonthlyOut').textContent=fmtWon(simMonthly());
-  $('#simProfitOut').textContent='+'+fmtWon(simProfit());
+  $('#simProfitOut').textContent=fmtWon(stockTotal);
   $('#simLoanOut').textContent=fmtWon(num(s.newLoanAtMoveIn));
   var maxExtra=Math.max(300000000, Math.ceil(c.goal*0.6/100000000)*100000000);
   var sx=$('#simExtra');
@@ -1201,7 +1286,10 @@ function renderSummary(){
   $('#simExtraOut').textContent=fmtWon(num(s.additionalLoanSim));
   $('#simMonthlyHint').textContent=(c.hasTarget&&c.months>0)?('필요 '+fmtShort(c.reqMonthly)):'';
   $('#simLoanHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.newLoanAtMoveIn)/c.goal*100,0,999))+'%'):'';
-  $('#simExtraHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.additionalLoanSim)/c.goal*100,0,999))+'%'):'';
+  var extraNow=num(s.additionalLoanSim);
+  $('#simExtraHint').textContent = c.personalHouse>0
+    ? ('목록 입주용 '+fmtShort(c.personalHouse)+' + 시뮬 '+fmtShort(extraNow)+' = 총 '+fmtShort(c.personalHouse+extraNow))
+    : ('총 '+fmtShort(extraNow)+(c.hasTarget?(' · 목표의 '+Math.round(clamp(extraNow/c.goal*100,0,999))+'%'):''));
   $('#simAvail').textContent='확보 '+fmtWon(c.sources);
   var gp=$('#simGap');
   gp.textContent=c.hasTarget?((c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap))):'';
@@ -1224,7 +1312,7 @@ function renderSchedule(){
          ' · 남은 예정 '+fmtWon(left)+(left>0?(' (<b>💵 현금 '+fmtWon(leftCash)+'</b>'+(leftLoan>0?(' · 🏦 대출 '+fmtWon(leftLoan)):'')+')'):''))
       : '';
   }
-  if(!list.length){ el.innerHTML='<div class="empty">계약금·중도금·잔금 일정을 추가하면 여기에 요약됩니다.</div>'; return; }
+  if(!list.length){ el.innerHTML='<div class="empty">계약금·중도금·잔금 일정을 추가하면 여기에 요약됩니다.</div>'; renderPhaseCash(); return; }
   el.innerHTML=list.map(function(x){
     var cls=x.status==='완료'?'done':(x.status==='예정'?'soon':'');
     var tag='';
@@ -1241,28 +1329,30 @@ function renderSchedule(){
       '<button class="del" data-sc-edit="'+x.id+'" aria-label="수정">✎</button>'+
       '<button class="del" data-del="schedule" data-id="'+x.id+'" aria-label="삭제">✕</button></div>';
   }).join('');
-  renderCashLoan();
+  renderPhaseCash();
 }
 
-/* ----------------------------------------------------------- 시기별 필요 현금 vs 대출 (v4.5)
- * ① 입주 전에 내 현금으로 내는 돈 — 그날까지 모이는 월급 누적 + 주식(평가금+목표 수익)으로 감당되는지
- * ② 입주 시점에 대출로 처리되는 돈 / 현금·전세로 충당해야 하는 돈 / 그중 전세금 회수를 빼고 내가 모아둘 순수 현금
+/* ----------------------------------------------------------- 앞으로 필요한 현금 (시기별) v4.6
+ * ① 입주 전 자납(중도금 6차 등) — 그날까지 모이는 '월급 누적 + 주식 자산'으로 감당되는지
+ * ② 입주 시점 — 월급 누적을 모두 반영한 뒤 실제로 더 있어야 하는 현금
+ * 상단 요약: 앞으로 낼 현금 합계 − 모을 돈(월급 + 주식 자산 + 개인 추가 대출) = 최종 부족분.
+ * 최종 부족분은 위쪽 KPI와 같은 calc().gap 을 그대로 쓰므로 1원까지 일치한다.
  */
-function cashLoanPlan(c){
+function phaseCashPlan(c){
+  c=c||calc();
   var s=state.settings, moveIn=parseDate(s.moveInDate);
   var list=state.schedule.slice().sort(function(a,b){ return (parseDate(a.dueDate)||0)-(parseDate(b.dueDate)||0); });
   var upcoming=list.filter(function(x){ return x.status!=='완료'; });
-  var stock=c.stockValue+c.stockProfit;          // 주식 평가금 + 목표 수익 (입주 때 쓸 수 있는 돈)
+  var stock=c.stockValue+c.stockProfit;            // 주식 자산 (평가 + 수익·배당)
   var preItems=[], preTotal=0, spent=0;
   upcoming.forEach(function(x){
-    var d=parseDate(x.dueDate); if(!d) return;
     if(fundOf(x)!=='현금') return;
+    var d=parseDate(x.dueDate); if(!d) return;
     if(moveIn && d>=moveIn) return;
     var months=Math.max(0,daysBetween(today(),d)/30.4375);
     var salary=Math.round(c.monthly*months/1e4)*1e4;
     var avail=stock+salary-spent;
-    var gap=avail-num(x.amount);
-    preItems.push({item:x, months:months, salary:salary, avail:avail, gap:gap});
+    preItems.push({item:x, months:months, salary:salary, avail:avail, gap:avail-num(x.amount)});
     spent+=num(x.amount); preTotal+=num(x.amount);
   });
   var loanSum=0, balanceSum=0;
@@ -1271,50 +1361,115 @@ function cashLoanPlan(c){
     if(f==='대출') loanSum+=num(x.amount);
     else if(f==='잔금') balanceSum+=num(x.amount);
   });
-  var existing=c.loanOut, newLoan=c.newLoan;
-  var loanNeed=existing+loanSum;                 // 주담대로 갚·충당해야 할 대출 총액
-  var loanCovered=Math.min(loanNeed,newLoan);
-  var loanOver=Math.max(0,loanNeed-newLoan);
   var feeSum=c.acqTax+c.deferInt;
-  var cashAtMoveIn=loanOver+balanceSum+feeSum;
-  var pureCash=cashAtMoveIn-c.deposit;           // 음수면 전세금으로 충당되고 남음
-  return {moveIn:moveIn, preItems:preItems, preTotal:preTotal, stock:stock, monthly:c.monthly,
-    loanSum:loanSum, balanceSum:balanceSum, existing:existing, newLoan:newLoan, loanNeed:loanNeed,
-    loanCovered:loanCovered, loanOver:loanOver, feeSum:feeSum, cashAtMoveIn:cashAtMoveIn,
-    deposit:c.deposit, pureCash:pureCash, hasSchedule:list.length>0};
+  var loanNeed=c.loanOut+loanSum;                  // 주담대로 갚·충당해야 할 대출 총액
+  var loanCovered=Math.min(loanNeed,c.newLoan);
+  var loanOver=Math.max(0,loanNeed-c.newLoan);
+  var loanSurplus=Math.max(0,c.newLoan-loanNeed);  // 주담대가 남으면 잔금·취득세에 먼저 쓴다
+  var moveInBill=balanceSum+feeSum;
+  var coveredBySurplus=Math.min(loanSurplus,moveInBill);
+  var cashAtMoveIn=loanOver+Math.max(0,moveInBill-coveredBySurplus);
+  var pureCash=cashAtMoveIn-c.deposit;             // 전세금 회수를 빼고 내가 모아야 하는 순수 현금
+  var salaryToMoveIn=c.future;
+  var credit=c.extraLoan+c.personalHouse;          // 개인 추가 대출 (입주용) — 대출현황 '입주용' + 시뮬레이터
+  var money=stock+salaryToMoveIn+credit;
+  var needTotal=preTotal+pureCash;
+  var afterSalary=pureCash-salaryToMoveIn;         // 월급 누적을 모두 반영한 뒤 남는 필요
+  var moveInCash=Math.max(0,afterSalary);
+  var spareAtMoveIn=Math.max(0,-afterSalary);
+  var shortfall=-c.gap;                            // >0 부족, <0 여유 (KPI와 동일한 값)
+  var cashSpare=Math.max(0,-pureCash);             // 전세금이 입주 때 낼 돈을 덮고 남는 돈
+  var needSide=preTotal+Math.max(0,pureCash);      // 현금으로 낼 돈 (전세금이 덮는 부분 제외)
+  var moneySide=money+cashSpare;
+  var bridgeDiff=shortfall-(needSide-moneySide);   // 목표·일정 입력이 어긋날 때만 생기는 차이(보통 0)
+  return {moveIn:moveIn, preItems:preItems, preTotal:preTotal, stock:stock, salaryToMoveIn:salaryToMoveIn,
+    credit:credit, money:money, needTotal:needTotal, loanSum:loanSum, loanNeed:loanNeed,
+    loanCovered:loanCovered, loanOver:loanOver, loanSurplus:loanSurplus, newLoan:c.newLoan,
+    balanceSum:balanceSum, feeSum:feeSum, cashAtMoveIn:cashAtMoveIn, deposit:c.deposit, pureCash:pureCash,
+    moveInCash:moveInCash, spareAtMoveIn:spareAtMoveIn, shortfall:shortfall, bridgeDiff:bridgeDiff,
+    cashSpare:cashSpare, needSide:needSide, moneySide:moneySide,
+    monthly:c.monthly, months:c.months, hasSchedule:list.length>0};
 }
-function wonOrFree(v){ return v>=0?fmtWon(v):('여유 '+fmtWon(-v)); }
-function renderCashLoan(){
+function dvRow(k,v){
+  return '<div class="r"><span>'+esc(k)+'</span><span>'+esc(v)+'</span></div>';
+}
+function renderPhaseCash(){
   var el=$('#cashLoanBody'); if(!el) return;
-  var c=calc(), p=cashLoanPlan(c), h=[];
-  var when=p.moveIn?('입주일 '+esc(state.settings.moveInDate)+' 이전'):'입주일 미설정';
+  var c=calc();
+  if(!c.hasTarget){
+    el.innerHTML='<div class="empty">목표 금액과 입주일을 넣으면 시기별로 나눠 보여줍니다.</div>';
+    return;
+  }
+  var p=phaseCashPlan(c), h=[];
+  if(!p.moveIn){
+    el.innerHTML='<div class="empty">설정에서 <b>입주 목표일</b>을 넣으면 시기별로 나눠 보여줍니다.</div>';
+    return;
+  }
+  var short=p.shortfall;
+  var stockLabel='주식 자산 '+fmtWon(p.stock);
+  var moneyLabel=stockLabel+(p.credit>0?(' + 개인 추가 대출 '+fmtWon(p.credit)):'');
 
-  /* ① 입주 전 자납 현금 */
-  h.push('<div class="cl-sec"><div class="cl-h"><span>① 입주 전 자납 현금</span><span class="cl-sub">'+when+'</span></div>');
+  /* ---------- 상단: 한눈에 요약 ---------- */
+  h.push('<div class="pc-top">');
+  h.push('<div class="pc-line"><span class="k">앞으로 낼 현금 합계</span><span class="v">'+fmtWon(p.needSide)+'</span></div>');
+  h.push('<div class="pc-line minus"><span class="k">− 모을 돈</span><span class="v">'+fmtWon(p.moneySide)+'</span></div>');
+  h.push('<div class="pc-sub">월급 '+fmtWon(p.salaryToMoveIn)+' + '+moneyLabel+(p.cashSpare>0?(' + 전세금 남는 돈 '+fmtWon(p.cashSpare)):'')+'</div>');
+  if(p.pureCash<0) h.push('<div class="pc-sub">전세금 회수가 입주 때 낼 돈을 덮고 '+fmtWon(-p.pureCash)+' 남습니다.</div>');
+  h.push('<div class="pc-res '+(short>0?'bad':'ok')+'"><span class="k">'+(short>0?'최종 부족':'최종 여유')+'</span><span class="v">'+fmtWon(Math.abs(short))+'</span></div>');
+  h.push('</div>');
+
+  /* ---------- ① 입주 전 ---------- */
+  h.push('<div class="pc-step">');
+  var head1 = p.preItems.length
+    ? (esc(p.preItems[0].item.dueDate||'날짜 미정')+' · '+esc(p.preItems[0].item.label||'일정'))
+    : (p.moveIn?esc(state.settings.moveInDate)+' 이전':'입주일 미설정');
+  h.push('<div class="pc-step-h"><span>① 입주 전</span><em>'+head1+'</em></div>');
   if(!p.preItems.length){
-    h.push('<div class="note" style="margin-top:6px">'+(!p.hasSchedule?'납입 일정을 넣으면 여기에 시기별로 나눠 보여줍니다.':(p.moveIn?'입주 전에 <b>현금</b>으로 낼 예정이 없습니다.':'입주일을 넣으면 입주 전 현금 일정을 계산합니다.'))+'</div>');
+    h.push('<div class="pc-foot">'+(p.hasSchedule?'입주 전에 현금으로 낼 일정이 없습니다.':'납입 일정을 넣으면 시기별로 나눠 보여줍니다.')+'</div>');
   }else{
     p.preItems.forEach(function(r){
-      var x=r.item;
-      h.push('<div class="cl-item">'+
-        '<div class="cl-when">'+esc(x.dueDate||'날짜 미정')+' · '+esc(x.label||'일정')+'</div>'+
-        '<div class="cl-amt">'+fmtWon(num(x.amount))+'</div>'+
-        '<div class="cl-fit">그날까지 월급 '+fmtWon(r.salary)+' + 주식 '+fmtWon(p.stock)+' = '+fmtWon(r.avail)+' → '+
-          (r.gap>=0?('<b class="pos">여유 '+fmtWon(r.gap)+'</b>'):('<b class="neg">부족 '+fmtWon(-r.gap)+'</b>'))+'</div></div>');
+      var x=r.item, many=p.preItems.length>1;
+      if(many){
+        h.push('<div class="pc-line"><span class="k">'+esc((x.dueDate||'날짜 미정')+' · '+(x.label||'일정'))+'</span><span class="v">'+fmtWon(num(x.amount))+'</span></div>');
+        h.push('<div class="pc-sub">그때까지 월급 '+fmtWon(r.salary)+' + '+stockLabel+' = '+fmtWon(r.avail)+'</div>');
+      }else{
+        h.push('<div class="pc-line"><span class="k">낼 돈 (자납)</span><span class="v">'+fmtWon(num(x.amount))+'</span></div>');
+        h.push('<div class="pc-line"><span class="k">그때까지 모이는 돈</span><span class="v">'+fmtWon(r.avail)+'</span></div>');
+        h.push('<div class="pc-sub">월급 '+fmtWon(r.salary)+' + '+stockLabel+'</div>');
+      }
+      h.push('<div class="pc-tag '+(r.gap>=0?'ok':'bad')+'">'+(r.gap>=0?('여유 '+fmtWon(r.gap)):('부족 '+fmtWon(-r.gap)))+'</div>');
     });
-    h.push('<div class="cl-foot">입주 전 자납 현금 합계 '+fmtWon(p.preTotal)+'</div>');
   }
   h.push('</div>');
 
-  /* ② 입주 시점 대출 vs 순수 현금 */
-  h.push('<div class="cl-sec"><div class="cl-h"><span>② 입주 시점 대출 vs 순수 현금</span><span class="cl-sub">'+(p.moveIn?esc(state.settings.moveInDate):'입주일 미설정')+'</span></div>');
-  h.push('<div class="cl-row"><span>🏦 대출로 처리</span><b>'+fmtWon(p.loanCovered)+'</b></div>');
-  h.push('<div class="cl-note">예정 중도금 대출 '+fmtWon(p.loanSum)+' + 기존 대출 잔액 '+fmtWon(p.existing)+' = '+fmtWon(p.loanNeed)+' 중 신규·승계 주담대 '+fmtWon(p.newLoan)+'으로 충당</div>');
-  h.push('<div class="cl-row"><span>💵 현금/전세로 충당</span><b>'+fmtWon(p.cashAtMoveIn)+'</b></div>');
-  h.push('<div class="cl-note">주담대 초과분 '+fmtWon(p.loanOver)+' + 입주 잔금 '+fmtWon(p.balanceSum)+' + 취득세·등기비 '+fmtWon(c.acqTax)+' + 중도금 후불이자 '+fmtWon(c.deferInt)+'</div>');
-  h.push('<div class="cl-row strong"><span>내가 실제로 모아둘 순수 현금</span><b class="'+(p.pureCash>0?'neg':'pos')+'">'+wonOrFree(p.pureCash)+'</b></div>');
-  h.push('<div class="cl-note">전세금 회수 '+fmtWon(p.deposit)+'을 빼고 남는 금액'+(p.pureCash<0?' — 전세금으로 충당되고 남습니다':' — 월급·주식으로 모아둘 돈')+'</div>');
-  h.push('<div class="cl-foot">① + ② 합계 '+wonOrFree(p.preTotal+p.pureCash)+'</div>');
+  /* ---------- ② 입주 시점 ---------- */
+  h.push('<div class="pc-step">');
+  h.push('<div class="pc-step-h"><span>② 입주 시점</span><em>'+(p.moveIn?esc(state.settings.moveInDate)+' · 잔금·취득세':'입주일 미설정')+'</em></div>');
+  if(!p.moveIn){
+    h.push('<div class="pc-foot">설정에서 입주 목표일을 넣으면 잔금·취득세까지 계산합니다.</div>');
+  }else{
+    h.push('<div class="pc-line"><span class="k">월급 반영 후 필요한 현금</span><span class="v">'+fmtWon(p.moveInCash)+'</span></div>');
+    h.push('<div class="pc-sub">잔금·취득세 등 '+fmtWon(Math.max(0,p.cashAtMoveIn))+' − 전세금 '+fmtWon(p.deposit)+' − 입주까지 월급 '+fmtWon(p.salaryToMoveIn)+
+      (p.spareAtMoveIn>0?(' → 월급 '+fmtWon(p.spareAtMoveIn)+' 남음'):'')+'</div>');
+    var tot=p.preTotal+p.moveInCash;
+    h.push('<div class="pc-tag '+(short>0?'bad':'ok')+'">①+② '+fmtWon(tot)+' 필요 · '+
+      (p.spareAtMoveIn>0?('주식 자산 '+fmtWon(p.stock)+(p.credit>0?(' + 개인 추가 대출 '+fmtWon(p.credit)):'')+' + 월급 잔여 '+fmtWon(p.spareAtMoveIn)):moneyLabel)+
+      ' → '+(short>0?('부족 '+fmtWon(short)):('여유 '+fmtWon(-short)))+'</div>');
+    h.push('<details class="dv"><summary>계산 자세히 보기</summary><div class="dv-body">');
+    h.push(dvRow('① 입주 전 자납 합계', fmtWon(p.preTotal)));
+    h.push(dvRow('② 입주 때 낼 돈 (잔금·취득세 등)', fmtWon(p.cashAtMoveIn)));
+    h.push('<div class="n">· 주담대 초과분 '+fmtWon(p.loanOver)+' + 잔금 '+fmtWon(p.balanceSum)+' + 취득세·등기비 '+fmtWon(c.acqTax)+' + 후불이자 '+fmtWon(c.deferInt)+'</div>');
+    h.push('<div class="n">· 예정 중도금 대출 '+fmtWon(p.loanSum)+' + 기존 잔액 '+fmtWon(c.loanOut)+' = '+fmtWon(p.loanNeed)+' → 신규·승계 주담대 '+fmtWon(p.newLoan)+' 충당</div>');
+    h.push(dvRow('− 전세금 회수', fmtWon(p.deposit)));
+    h.push(dvRow('− 입주까지 월급 누적 ('+Math.round(p.months)+'개월 × '+fmtWon(p.monthly)+')', fmtWon(p.salaryToMoveIn)));
+    h.push(dvRow('앞으로 낼 현금 합계', fmtWon(p.needSide)));
+    h.push(dvRow('모을 돈 (월급 + '+moneyLabel+(p.cashSpare>0?' + 전세금 남는 돈':'')+')', fmtWon(p.moneySide)));
+    h.push(dvRow('최종 '+(short>0?'부족':'여유'), fmtWon(Math.abs(short))));
+    h.push('<div class="n">· 주식 자산 안분 · 평가 '+fmtWon(c.stockValue)+' + 수익·배당 '+fmtWon(c.stockProfit)+'</div>');
+    if(Math.abs(p.bridgeDiff)>=1) h.push(dvRow('그 밖의 차이 (목표·일정 입력 차이)', fmtWon(p.bridgeDiff)));
+    h.push('<div class="n">①과 ②는 각 시점의 상태입니다. 최종 부족·여유는 위쪽 <b>최종 부족분</b>과 같은 금액입니다.</div>');
+    h.push('</div></details>');
+  }
   h.push('</div>');
   el.innerHTML=h.join('');
 }
@@ -1339,7 +1494,7 @@ function debtSummary(c){
       rate:(l.rate==null?null:num(l.rate)), note:l.memo||'', id:l.id, forHouse:l.forHouse===true});
   });
   var extra=num(state.settings.additionalLoanSim);
-  if(extra>0) items.push({name:'추가 대출 (입주 자금)', group:'personal', balance:extra, rate:null, note:'시뮬레이터에서 조절', sim:true});
+  if(extra>0) items.push({name:'개인 추가 대출 (입주용 · 시뮬)', group:'personal', balance:extra, rate:null, note:'시뮬레이터에서 조절', sim:true});
   var hi=0, pi=0;
   items.forEach(function(it){
     if(it.group==='house'){ house+=it.balance; it.color=HOUSE_COLORS[Math.min(hi++,HOUSE_COLORS.length-1)]; }
@@ -1379,13 +1534,10 @@ function renderLoanStatusMini(c){
   $('#debtMiniBar').innerHTML=debtSegHtml(d);
   $('#debtMiniSplit').innerHTML=
     '<span><i class="dot house-c"></i>주택 관련 <b>'+fmtWon(d.house)+'</b></span>'+
-    '<span><i class="dot personal-c"></i>별도 개인 <b>'+fmtWon(d.personal)+'</b></span>';
+    '<span><i class="dot personal-c"></i>개인 <b>'+fmtWon(d.personal)+'</b></span>';
   $('#debtMiniNote').innerHTML = d.total>0
-    ? ((d.extra>0?('시뮬레이터 <b>추가 대출 '+fmtWon(d.extra)+'</b> 포함. '):'')+
-       (d.personalHouse>0?('개인대출 <b>입주 포함 '+fmtWon(d.personalHouse)+'</b>은(는) 확보 재원으로 부족분을 줄입니다. '):'')+
-       (d.personalHouse>0
-         ? (d.personalSeparate>0?('별도 '+fmtWon(d.personalSeparate)+'은(는) 표시만 합니다.'):'체크하지 않은 개인대출은 표시만 합니다.')
-         : '별도 개인대출은 부족분 계산에 넣지 않습니다.'))
+    ? ('<b>개인 추가 대출 '+fmtWon(d.personalHouse+d.extra)+'</b>은(는) 확보 재원으로 부족분을 줄입니다.'+
+       (d.personalSeparate>0?(' 별도 개인대출 '+fmtWon(d.personalSeparate)+'은(는) 표시만 합니다.'):''))
     : '대출상환·설정에 잔액을 넣거나 <b>대출현황</b>에서 개인대출을 추가하세요.';
 }
 function debtRowHtml(it, opts){
@@ -1395,7 +1547,7 @@ function debtRowHtml(it, opts){
   var bar='<div class="mini-bar"><i style="width:'+clamp(it.pct,0,100).toFixed(1)+'%;background:'+it.color+'"></i></div>';
   /* v4.4: 개인대출은 입주 포함 / 별도 배지로 구분(목록 이름이 길어도 잘리지 않는 자리에 둔다) */
   var tag=(it.group==='personal' && !it.sim)
-    ? '<span class="bq pl-tag '+(it.forHouse?'include':'separate')+'">'+(it.forHouse?'입주 포함':'별도')+'</span>'
+    ? '<span class="bq pl-tag '+(it.forHouse?'include':'separate')+'">'+(it.forHouse?'입주용':'별도')+'</span>'
     : '';
   return '<div class="row"><div class="main">'+
     '<div class="t1">'+esc(it.name)+'</div>'+
@@ -1414,7 +1566,7 @@ function renderDebt(c){
 
   var kpis=[
     {k:'주택 관련 (파랑)', v:fmtWon(d.house), d:'중도금 잔액 + 신규·승계 주담대'},
-    {k:'별도 개인 (주황)', v:fmtWon(d.personal), d:'목록 '+d.listCount+'건 '+fmtShort(d.listTotal)+(d.personalHouse>0?(' · 입주 포함 '+fmtShort(d.personalHouse)):'')+(d.extra>0?(' + 추가 '+fmtShort(d.extra)):'')},
+    {k:'개인 (주황)', v:fmtWon(d.personal), d:'목록 '+d.listCount+'건 '+fmtShort(d.listTotal)+(d.extra>0?(' + 시뮬 '+fmtShort(d.extra)):'')},
     {k:'총 대출', v:fmtWon(d.total), d:'주택 '+Math.round(d.total?d.house/d.total*100:0)+'% · 개인 '+Math.round(d.total?d.personal/d.total*100:0)+'%'},
     {k:'이자 부담 (연)', v:d.interest>0?fmtWon(d.interest):'—', d:d.interest>0?('월 약 '+fmtWon(d.interest/12)):'개인대출 금리를 넣으면 계산'}
   ];
@@ -1426,19 +1578,29 @@ function renderDebt(c){
   $('#debtHouseList').innerHTML=houseItems.length?houseItems.map(function(it){ return debtRowHtml(it); }).join('')
     :'<div class="empty">대출상환 탭의 잔액이나 설정의 신규·승계 주담대를 넣으면 여기에 나옵니다.</div>';
 
+  var sp=$('#debtPersonalSplit');
+  if(sp){
+    var inc=d.personalHouse+d.extra;
+    sp.innerHTML=
+      '<div class="ps include"><span>🏠 입주용 <b>(계산 포함)</b></span><b>'+fmtWon(inc)+'</b></div>'+
+      '<div class="ps-sub">목록 입주용 '+fmtWon(d.personalHouse)+' + 시뮬레이터 '+fmtWon(d.extra)+'</div>'+
+      '<div class="ps separate"><span>주택 무관 별도 <b>(계산 제외)</b></span><b>'+fmtWon(d.personalSeparate)+'</b></div>';
+  }
   var personalItems=d.items.filter(function(i){return i.group==='personal';});
   $('#debtPersonalList').innerHTML=personalItems.length?personalItems.map(function(it){
     return debtRowHtml(it,{editable:!!it.id});
-  }).join(''):'<div class="empty">별도 개인대출이 없습니다. <b>+ 추가</b>로 대출명·잔액·금리를 넣어 두세요.</div>';
+  }).join(''):'<div class="empty">개인대출이 없습니다. <b>+ 추가</b>로 대출명·잔액·금리를 넣어 두세요.</div>';
   $('#debtPersonalFoot').innerHTML=d.personal>0
-    ? ('합계 <b>'+fmtWon(d.personal)+'</b>'+
-       (d.personalHouse>0
-         ? (' · 목록 '+fmtShort(d.listTotal)+' 중 <b>입주 포함 '+fmtShort(d.personalHouse)+'</b>'+
-            (d.personalSeparate>0?(' · 별도 '+fmtShort(d.personalSeparate)):'')+
-            (d.extra>0?(' · 추가 대출(시뮬) '+fmtShort(d.extra)):''))
-         : (d.extra>0?(' · 목록 '+fmtShort(d.listTotal)+' + 추가 대출 '+fmtShort(d.extra)):'')))
+    ? ('합계 <b>'+fmtWon(d.personal)+'</b> · 개인 추가 대출 <b>'+fmtWon(d.personalHouse+d.extra)+'</b>'+
+       (d.personalSeparate>0?(' · 별도 '+fmtShort(d.personalSeparate)):''))
     : '';
 }
+
+/* v4.6: 주식 탭 — 도미노 총액 한 칸 저장 */
+if($('#btnSaveStockTotal')) $('#btnSaveStockTotal').addEventListener('click',function(){
+  setStockAssetTotal(num($('#stAssetTotal').value));
+  commit(); toast('주식 자산을 저장했습니다');
+});
 
 /* ----------------------------------------------------------- 렌더: 대출 */
 function renderLoans(){
@@ -1471,22 +1633,45 @@ function renderLoans(){
 }
 
 /* ----------------------------------------------------------- 렌더: 주식 */
+/* v4.6: 주식 평가금 + 목표 수익 → '주식 자산' 한 값으로.
+ *   주식 자산 = stockValue(도미노 총액) + simProfit(추가 예상, 시뮬레이터 슬라이더)
+ *   데이터는 그대로 (설정 stockValue·stockTargetProfit, 시뮬 stockProfitSim, 주식포트폴리오 탭) */
+function stockAssetTotal(){ return stockValueNow()+simProfit(); }
+function setStockAssetTotal(total){
+  var t=Math.max(0,num(total));
+  var hold=stockTotals().value;
+  if(state.stocks.length>0){                      // 종목을 넣어 둔 경우: 총액 − 보유 평가금 = 추가 예상
+    state.settings.stockProfitSim=Math.max(0,t-hold);
+    state.settings.stockTargetProfit=Math.max(0,t-hold);
+  }else{
+    state.settings.stockValue=t;                  // 도미노 앱의 평가+실현+배당 총액
+    state.settings.stockProfitSim=0;
+    state.settings.stockTargetProfit=0;
+  }
+}
 function renderStocks(){
   var t=stockTotals();
-  var target=num(state.settings.stockTargetProfit);
+  var now=stockValueNow(), extra=simProfit(), total=now+extra;
   var profitPct=t.cost>0?t.profit/t.cost*100:0;
-  var kpis=[
-    {k:'평가금', v:fmtWon(t.value), d:t.count+'종목'},
-    {k:'매수 원가', v:fmtWon(t.cost), d:'—'},
-    {k:'평가 손익', v:(t.profit>=0?'+':'')+fmtWon(t.profit), d:(t.profit>=0?'+':'')+round1(profitPct)+'%', cls:t.profit>=0?'pos':'neg'},
-    {k:'목표 수익 대비', v:target>0?(round1(clamp(t.profit/target*100,-999,999))+'%'):'—', d:target>0?('목표 '+fmtShort(target)):'목표 미설정'}
-  ];
+  /* 종목을 넣어 둔 경우에만 종목별 지표를 보여 준다(한 칸 입력만 쓰는 경우 화면을 비운다) */
+  var kpis=t.count?[
+    {k:'주식 자산', v:fmtWon(total), d:'도미노 총액 기준', accent:true},
+    {k:'매수 원가', v:fmtWon(t.cost), d:t.count+'종목'},
+    {k:'평가 손익', v:(t.profit>=0?'+':'')+fmtWon(t.profit), d:(t.profit>=0?'+':'')+round1(profitPct)+'%', cls:t.profit>=0?'pos':'neg'}
+  ]:[];
   $('#stockKpis').innerHTML=kpis.map(function(k){
     return '<div class="kpi'+(k.accent?' accent':'')+'"><div class="k">'+k.k+'</div><div class="v '+(k.cls||'')+'" title="'+esc(k.v)+'">'+esc(k.v)+'</div><div class="d">'+esc(k.d)+'</div></div>';
   }).join('');
 
+  var inp=$('#stAssetTotal');
+  if(inp && document.activeElement!==inp) inp.value=total?comma(total):'';
+  var sn=$('#stAssetNote');
+  if(sn) sn.innerHTML='도미노 앱에 뜨는 <b>평가+실현+배당 합계</b>를 그대로 넣으세요. '+
+    (t.count?('보유 종목 평가금 '+fmtWon(t.value)+'이 기준입니다. '):'')+
+    '요약·시뮬 탭의 <b>주식 자산</b> 슬라이더와 같은 금액입니다.';
+
   var el=$('#stockList');
-  if(!t.count){ el.innerHTML='<div class="empty">보유 종목을 추가하면 평가금이 요약 탭에 자동 합산됩니다.</div>'; return; }
+  if(!t.count){ el.innerHTML='<div class="empty">종목을 하나씩 넣지 않아도 됩니다. 위 칸에 도미노 총액만 넣으면 요약 탭에 바로 반영됩니다.</div>'; return; }
   el.innerHTML=state.stocks.map(function(r){
     var p=(r.currentPrice==null?num(r.avgPrice):num(r.currentPrice));
     var val=num(r.qty)*p, cost=num(r.qty)*num(r.avgPrice), pl=val-cost;
@@ -1541,7 +1726,7 @@ function simHandler(id,key){
   el.addEventListener('input',function(){
     var v=num(el.value);
     if(key==='monthly') state.settings.monthlyInvestSim=v;
-    if(key==='profit') state.settings.stockProfitSim=v;
+    if(key==='profit') state.settings.stockProfitSim=Math.max(0,v-stockValueNow());   // 슬라이더는 '주식 자산' 총액
     if(key==='loan') state.settings.newLoanAtMoveIn=v;
     if(key==='extra') state.settings.additionalLoanSim=v;
     commitSummary();
@@ -1838,15 +2023,35 @@ $('#stSave').addEventListener('click',function(){
   commit(); toast('종목을 추가했습니다');
 });
 
-/* ----------------------------------------------------------- 별도 개인대출 (v4) */
+/* ----------------------------------------------------------- 개인대출 (v4 / v4.6)
+ * 공무원연금공단·교직원공제회처럼 '입주 때 쓸 수 있는 별도 대출'을 넣는 곳.
+ * forHouse(입주용) = 확보 재원에 포함해 부족분을 줄인다 / 별도 = 주택과 무관해 목록에만 보인다.
+ */
 var editingPersonalId=null;
+function syncForHouseLabel(){
+  var cb=$('#plForHouse'), tx=$('#plForHouseTx'); if(!cb || !tx) return;
+  tx.innerHTML = cb.checked
+    ? '🏠 입주 자금에 쓰기 <b>(확보 재원 포함)</b><small>이 잔액을 입주 계산에 더해 부족분을 줄입니다</small>'
+    : '별도 (주택 무관)<small>입주 계산에서 빼고 목록에만 보여 줍니다</small>';
+}
 function resetPersonalForm(){
   editingPersonalId=null;
   $('#plName').value=''; $('#plBalance').value=''; $('#plRate').value=''; $('#plMemo').value='';
   $('#plForHouse').checked=false;
+  syncForHouseLabel();
+  $$('#plNameChips .chip').forEach(function(c){ c.classList.remove('on'); });
   $('#personalForm').classList.add('hidden');
   $('#plSave').textContent='저장';
 }
+if($('#plForHouse')) $('#plForHouse').addEventListener('change',syncForHouseLabel);
+if($('#plNameChips')) $('#plNameChips').addEventListener('click',function(e){
+  var b=e.target.closest('.chip'); if(!b) return;
+  $$('#plNameChips .chip').forEach(function(c){ c.classList.remove('on'); });
+  b.classList.add('on');
+  var nm=b.getAttribute('data-name')||'';
+  $('#plName').value=nm;
+  if(!nm) $('#plName').focus();
+});
 $('#btnAddPersonal').addEventListener('click',function(){
   resetPersonalForm();
   $('#personalForm').classList.remove('hidden');
@@ -1866,6 +2071,7 @@ $('#debtPersonalList').addEventListener('click',function(e){
   $('#plRate').value=(l.rate==null?'':l.rate);
   $('#plMemo').value=l.memo||'';
   $('#plForHouse').checked=(l.forHouse===true);
+  syncForHouseLabel();
   $('#plSave').textContent='수정 저장';
   $('#personalForm').classList.remove('hidden');
   $('#plName').focus();
@@ -1924,7 +2130,7 @@ function openSettings(){
   $('#cfDate').value=s.moveInDate||'';
   $('#cfDeposit').value=num(s.expectedDeposit)?comma(s.expectedDeposit):'';
   $('#cfLoan').value=num(s.loanBalance)?comma(s.loanBalance):'';
-  $('#cfStockTarget').value=num(s.stockTargetProfit)?comma(s.stockTargetProfit):'';
+  $('#cfStockTarget').value=stockAssetTotal()?comma(stockAssetTotal()):'';
   $('#cfMonthly').value=num(s.monthlyInvest)?comma(s.monthlyInvest):'';
   $('#cfNewLoan').value=num(s.newLoanAtMoveIn)?comma(s.newLoanAtMoveIn):'';
   $('#cfAcqTax').value=num(s.acquisitionTax)?comma(s.acquisitionTax):'';
@@ -1953,7 +2159,7 @@ $('#btnSaveSettings').addEventListener('click',function(){
   s.moveInDate=$('#cfDate').value||'';
   s.expectedDeposit=num($('#cfDeposit').value);
   s.loanBalance=num($('#cfLoan').value);
-  s.stockTargetProfit=num($('#cfStockTarget').value);
+  setStockAssetTotal(num($('#cfStockTarget').value));
   s.monthlyInvest=num($('#cfMonthly').value);
   s.monthlyInvestSim=null;
   s.newLoanAtMoveIn=num($('#cfNewLoan').value);
@@ -2494,6 +2700,8 @@ window.__wp={
   calc:function(){ return calc(); },
   paidParts:function(){ return paidParts(); },
   debt:function(){ return debtSummary(); },
+  phaseCash:function(){ return phaseCashPlan(); },
+  stockAsset:function(){ return stockAssetTotal(); },
   showTab:function(t){ showTab(t); },
   isBlank:function(){ return isBlank(state); },
   classifyUrl:classifyUrl,
