@@ -1954,7 +1954,7 @@ function renderLoans(){
   var lgl=$('#loanChartLegend');
   if(lgl) lgl.innerHTML = ls.length ? (
     '<span><i style="background:#2563eb"></i>실선 = 지금까지 기록</span>'+
-    (loanProjOn?('<span><i style="background:#2563eb;opacity:.5"></i>점선 = 예상 (월 '+fmtShort(simMonthly())+' 상환'+(execCount?(' · 중도금 '+execCount+'회'):'')+')</span>'):'')
+    (loanProjOn?('<span><i style="background:#2563eb;opacity:.5"></i>점선 = 예상 (월 '+fmtShort(simMonthly())+' 원금 상환'+(execCount?(' · 중도금 '+execCount+'회'):'')+')</span>'):'')
   ) : '';
   var bp=$('#btnLoanProj');
   if(bp){
