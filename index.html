@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.7.3
+  입주 자금관리 — 설치형 웹앱(PWA) v4.7.4
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -61,6 +61,12 @@
         슬라이더나 그 줄의 −/+ 버튼을 0.35초 꾹 누르면 짧은 진동과 함께 그 줄만, 맨 아래 균형 버튼 줄을
         꾹 누르면 카드 전체가 풀린다. 헤더의 🔒 잠금 / 🔓 조절 버튼으로 전체 토글.
         잠금과 상관없이 시소는 여전히 독립 · 저장 안 됨(1번 시뮬레이터·localStorage·시트 그대로).
+  · v4.7.4: ① 삭제가 안 되던 문제 — window.confirm을 버리고 버튼 자체 2단계 확인(✕ → 빨간 '삭제?' → 4초 안에 한 번 더)
+        으로 모든 목록 삭제를 바꿨다. 특히 개인대출은 '🔒 편집'을 켜지 않아도 ✕ 가 보이고 바로 지울 수 있다
+        (대출상환·납입일정·주식 목록의 편집 잠금은 그대로).
+        ② '개인 추가 대출 (입주용)' 슬라이더 연동 — 슬라이더가 이제 '목록 입주용 + 시뮬 추가분' 총액을 보여 준다.
+        min = 대출현황에서 '입주용'으로 체크한 개인대출 합계, 큰 숫자 = 그 합계 + 추가분, 아래 설명은
+        '목록 입주용 ○○ + 추가 시뮬 ○○ · 목표의 ○%'. 그래서 개인대출을 추가·삭제하면 슬라이더 숫자·위치가 바로 따라온다.
 -->
 <html lang="ko">
 <head>
@@ -326,6 +332,11 @@ input[type=range]::-moz-range-thumb{width:22px;height:22px;border-radius:50%;bac
 .del:active{background:var(--line2)}
 /* 편집(관리자) 모드 — 기본은 읽기 전용, 켰을 때만 삭제 ✕·수정 ✎ 버튼이 보임 */
 body:not(.edit-mode) .del{display:none!important}
+/* v4.7.4: 개인대출 ✕ 는 편집 잠금과 상관없이 항상 보인다(2단계 확인 후 삭제) */
+body:not(.edit-mode) .del.pl-del{display:grid!important;color:var(--bad);background:var(--bad-soft)}
+.del.confirming{width:auto!important;min-width:32px;padding:0 8px;font-size:12px;font-weight:800;letter-spacing:-.2px;
+  color:#fff!important;background:var(--bad)!important;display:inline-grid!important}
+.del.confirming:active{background:#b91c1c!important}
 body.edit-mode .row{background:color-mix(in srgb,var(--warn) 7%,transparent);border-radius:9px;padding-left:7px;padding-right:3px}
 body.edit-mode .row .del{color:var(--bad);background:var(--bad-soft)}
 body.edit-mode .row .del[data-pl-edit]{color:var(--accent);background:var(--accent-soft)}
@@ -602,7 +613,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div class="sim-row">
           <div class="sim-head"><label for="simExtra">개인 추가 대출 (입주용)<span class="sim-lock-ico" id="lockico-simExtra" aria-hidden="true">🔒</span></label><output id="simExtraOut" class="sim-out" role="button" tabindex="0" title="눌러서 금액을 직접 입력">0원</output></div>
           <div class="sim-slide"><input type="range" id="simExtra" min="0" max="300000000" step="1000000" value="0" disabled aria-disabled="true"><span class="sim-veil" id="veil-simExtra" aria-hidden="true"></span></div>
-          <div class="sim-foot"><span>0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
+          <div class="sim-foot"><span id="simExtraMin">0</span><span id="simExtraHint"></span><span id="simExtraMax">3억</span></div>
         </div>
       </div>
       <div class="sim-result">
@@ -615,6 +626,8 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
           <b>총 목표</b> − <b>이미 낸 내 돈</b>(대출 원금 상환 + 자납 납입) = <b>앞으로 남은 필요 자금</b>.<br>
           여기서 <b>전세금 + 주식 자산(평가+수익+배당) + 개인 추가 대출 + (월 투입 × 남은 개월) + 신규·승계 주담대</b>를 빼면 <b>최종 부족분</b>입니다.
           개인 추가 대출은 <b>대출현황에서 '입주용'으로 체크한 개인대출</b>과 이 슬라이더의 금액을 합친 하나의 값입니다.
+          이 슬라이더는 <b>그 합계</b>를 보여 줍니다 — 왼쪽 끝이 '목록 입주용' 합계이고, 오른쪽으로 밀면 그 위에
+          <b>시뮬레이터 추가분</b>이 더해집니다(예: 목록 5,000만 + 추가 3,000만 = 8,000만).
           입주 때 빌리는 돈이라 부족분을 줄이지만, 그만큼 대출현황의 개인대출이 늘어납니다.
           체크하지 않은 개인대출은 대출현황에만 보입니다.
         </div>
@@ -819,7 +832,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <div><label>중도금 후불이자</label><input id="cfDeferInt" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>주식 자산 (도미노 총액)</label><input id="cfStockTarget" class="money" inputmode="numeric" placeholder="0"></div>
         <div><label>예상 월평균 투입</label><input id="cfMonthly" class="money" inputmode="numeric" placeholder="0"></div>
-        <div><label>개인 추가 대출 (입주용)</label><input id="cfExtraLoan" class="money" inputmode="numeric" placeholder="0"></div>
+        <div><label>개인 추가 대출 — 시뮬 추가분</label><input id="cfExtraLoan" class="money" inputmode="numeric" placeholder="0"></div>
         <div class="full btn-row"><button class="btn primary" id="btnSaveSettings">기본 값 저장</button></div>
         <div class="full note">
           <b>목표 금액은 총액(분양가+옵션)</b>을 넣으세요. <b>취득세·등기비</b>와 <b>중도금 후불이자</b>는
@@ -926,7 +939,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.7.3';
+var APP_VERSION='4.7.4';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -1670,15 +1683,24 @@ function renderSummary(){
   $('#simLoanOut').textContent=fmtWon(num(s.newLoanAtMoveIn));
   var maxExtra=Math.max(300000000, Math.ceil(c.goal*0.6/100000000)*100000000);
   var sx=$('#simExtra');
-  sx.max=String(maxExtra); $('#simExtraMax').textContent=fmtShort(maxExtra);
-  if(String(sx.value)!==String(Math.round(num(s.additionalLoanSim)))) sx.value=String(clamp(Math.round(num(s.additionalLoanSim)),0,maxExtra));
-  $('#simExtraOut').textContent=fmtWon(num(s.additionalLoanSim));
+  /* v4.7.4: 슬라이더는 '목록 입주용(personalHouse) + 시뮬 추가분(additionalLoanSim)' 총액 기준.
+   *  min = 목록 입주용 → 슬라이더 왼쪽 끝이 목록 금액, 오른쪽으로 밀면 시뮬 추가분이 붙는다. */
+  var houseBase=Math.max(0, Math.round(num(c.personalHouse)));
+  if(maxExtra<=houseBase) maxExtra=houseBase+300000000;
+  var extraNow=num(s.additionalLoanSim);
+  var extraTotal=houseBase+extraNow;
+  sx.min=String(houseBase);
+  sx.max=String(maxExtra);
+  $('#simExtraMax').textContent=fmtShort(maxExtra);
+  if($('#simExtraMin')) $('#simExtraMin').textContent=houseBase>0?fmtShort(houseBase):'0';
+  if(String(sx.value)!==String(Math.round(extraTotal))) sx.value=String(clamp(Math.round(extraTotal),houseBase,maxExtra));
+  $('#simExtraOut').textContent=fmtWon(extraTotal);
   $('#simMonthlyHint').textContent=(c.hasTarget&&c.months>0)?('필요 '+fmtShort(c.reqMonthly)):'';
   $('#simLoanHint').textContent=c.hasTarget?('목표의 '+Math.round(clamp(num(s.newLoanAtMoveIn)/c.goal*100,0,999))+'%'):'';
-  var extraNow=num(s.additionalLoanSim);
-  $('#simExtraHint').textContent = c.personalHouse>0
-    ? ('목록 입주용 '+fmtShort(c.personalHouse)+' + 시뮬 '+fmtShort(extraNow)+' = 총 '+fmtShort(c.personalHouse+extraNow))
-    : ('총 '+fmtShort(extraNow)+(c.hasTarget?(' · 목표의 '+Math.round(clamp(extraNow/c.goal*100,0,999))+'%'):''));
+  $('#simExtraHint').textContent = houseBase>0
+    ? ('목록 입주용 '+fmtShort(houseBase)+' + 추가 시뮬 '+fmtShort(extraNow)
+        +(c.hasTarget?(' · 목표의 '+Math.round(clamp(extraTotal/c.goal*100,0,999))+'%'):''))
+    : ('총 '+fmtShort(extraTotal)+(c.hasTarget?(' · 목표의 '+Math.round(clamp(extraTotal/c.goal*100,0,999))+'%'):''));
   $('#simAvail').textContent='확보 '+fmtWon(c.sources);
   var gp=$('#simGap');
   gp.textContent=c.hasTarget?((c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap))):'';
@@ -1977,7 +1999,7 @@ function debtRowHtml(it, opts){
     '<div class="t2">'+esc(meta.join(' · '))+'</div>'+bar+'</div>'+tag+
     '<div class="amt">'+fmtShort(it.balance)+'</div>'+
     (opts.editable?('<button class="del" data-pl-edit="'+it.id+'" aria-label="수정" title="수정">✎</button>'+
-      '<button class="del" data-del="extraLoans" data-id="'+it.id+'" aria-label="삭제">✕</button>'):'')+
+      '<button class="del pl-del" data-del="extraLoans" data-id="'+it.id+'" aria-label="삭제" title="삭제">✕</button>'):'')+
     '</div>';
 }
 function renderDebt(c){
@@ -2208,7 +2230,9 @@ function simHandler(id,key){
     if(key==='monthly') state.settings.monthlyInvestSim=v;
     if(key==='profit') state.settings.stockProfitSim=Math.max(0,v-stockValueNow());   // 슬라이더는 '주식 자산' 총액
     if(key==='loan') state.settings.newLoanAtMoveIn=v;
-    if(key==='extra') state.settings.additionalLoanSim=v;
+    /* v4.7.4: 개인 추가 대출 슬라이더는 '목록 입주용 + 시뮬 추가분' 총액이라
+     *  min(=목록 입주용)을 뺀 값만 시뮬 추가분(additionalLoanSim)으로 저장한다. */
+    if(key==='extra') state.settings.additionalLoanSim=Math.max(0, v-num(el.min));
     commitSummary();
   });
 }
@@ -2441,7 +2465,9 @@ function simSetValue(id,v){
   var inp=$('#'+id); if(!inp) return;
   var lo=num(inp.min)||0, hi=num(inp.max)||Math.max(0,v);
   var n=Math.round(num(v)), c=clamp(n,lo,hi);
-  state.settings[key]=c;
+  /* v4.7.4: 개인 추가 대출 칸에 넣은 금액은 '목록 입주용 + 시뮬 추가분' 총액이다. */
+  if(id==='simExtra') state.settings.additionalLoanSim=Math.max(0, c-lo);
+  else state.settings[key]=c;
   commitSummary();
   if(c!==n) toast('조절 범위는 '+fmtWon(lo)+' ~ '+fmtWon(hi)+'입니다');
 }
@@ -2554,20 +2580,54 @@ $('#scheduleList').addEventListener('click',function(e){
   }
 });
 
-/* ----------------------------------------------------------- 삭제 */
+/* ----------------------------------------------------------- 삭제 (v4.7.4)
+ * window.confirm은 쓰지 않는다 — 일부 모바일 브라우저·설치형 앱(PWA)에서 확인창이 막히거나
+ * 무시되어 '삭제가 안 되는' 것처럼 보였다. 대신 버튼 자체가 2단계 확인이 된다:
+ *   ① ✕ 를 누르면 그 버튼이 빨간 '삭제?' 로 바뀌고 안내 토스트가 뜼다.
+ *   ② 4초 안에 '삭제?' 를 한 번 더 누르면 실제로 지운다(그 사이 다른 곳을 누르면 취소).
+ * 개인대출(extraLoans)은 목록 편집 잠금(🔒 편집)과 상관없이 바로 지울 수 있다 —
+ * 사용자가 '테스트 삼아 넣었다가 바로 지우는' 일이 잃은 항목이라서.
+ * 나머지 목록(대출상환·납입일정·주식)은 지금처럼 편집 모드를 켜야 ✕ 가 보이고 지워진다.
+ */
+var delPendingKey=null, delPendingBtn=null, delTimer=null;
+var DEL_ARM_MS=4000;
+function resetDelPending(){
+  if(delTimer){ clearTimeout(delTimer); delTimer=null; }
+  if(delPendingBtn){
+    delPendingBtn.classList.remove('confirming');
+    delPendingBtn.textContent='✕';
+    delPendingBtn.setAttribute('aria-label','삭제');
+  }
+  delPendingBtn=null; delPendingKey=null;
+}
 function handleDelete(btn){
-  if(!editMode){ toast('오른쪽 위 편집을 켜야 삭제할 수 있습니다'); return; }
   var kind=btn.getAttribute('data-del'), id=btn.getAttribute('data-id');
+  if(kind!=='extraLoans' && !editMode){ toast('오른쪽 위 편집을 켜야 삭제할 수 있습니다'); return; }
   var arr=state[kind]||[];
   var idx=arr.findIndex(function(x){return x.id===id;});
-  if(idx<0) return;
-  if(!window.confirm('이 항목을 삭제할까요?')) return;
+  if(idx<0){ resetDelPending(); return; }
+  var key=kind+'|'+id;
+  var armed=delPendingBtn && document.contains(delPendingBtn);
+  if(!(armed && delPendingKey===key)){
+    resetDelPending();
+    delPendingKey=key; delPendingBtn=btn;
+    btn.classList.add('confirming');
+    btn.textContent='삭제?';
+    btn.setAttribute('aria-label','한 번 더 누르면 삭제됩니다');
+    delTimer=setTimeout(resetDelPending, DEL_ARM_MS);
+    toast('한 번 더 누르면 삭제됩니다 (4초 안에)');
+    return;
+  }
+  var name=arr[idx].name||arr[idx].label||'';
+  resetDelPending();
   arr.splice(idx,1);
-  commit(); toast('삭제했습니다');
+  commit();
+  toast(name?('“'+name+'”을(를) 삭제했습니다'):'삭제했습니다');
 }
 $$('.view').forEach(function(v){ v.addEventListener('click',function(e){
   var d=e.target.closest('[data-del]');
   if(d && !e.target.closest('[data-sc-toggle]')) handleDelete(d);
+  else resetDelPending();   /* 다른 곳을 누르면 확인 취소 */
 });});
 
 /* ----------------------------------------------------------- 대출 추가 */
