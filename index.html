@@ -2337,6 +2337,9 @@ function applySsLock(){
     inp.disabled=!(ssCanUse && open);
     inp.setAttribute('aria-disabled',(ssCanUse&&open)?'false':'true');
     if(row) row.classList.toggle('locked',!open);
+    if(row) row.querySelectorAll('.ss-steps button').forEach(function(b){
+      b.setAttribute('aria-disabled',(ssCanUse&&open)?'false':'true');   /* 실제 disabled는 아니고, 탭하면 안내만 — 값은 그대로 */
+    });
     if(veil) veil.classList.toggle('hidden', open && ssCanUse);
     if(ico) ico.classList.toggle('hidden', open);
   });
