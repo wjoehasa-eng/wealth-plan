@@ -896,6 +896,8 @@ function ymd(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'
 function today(){var d=new Date();d.setHours(0,0,0,0);return d;}
 function daysBetween(a,b){return Math.round((b.getTime()-a.getTime())/86400000);}
 function mdLabel(s){var d=parseDate(s);return d?String(d.getMonth()+1).padStart(2,'0')+'.'+String(d.getDate()).padStart(2,'0'):String(s||'');}
+/* v4.7: 여러 해에 걸친 추이 그래프용 — 26.01 처럼 연도 두 자리를 함께 쓴다 */
+function ymLabel(s){var d=parseDate(s);return d?String(d.getFullYear()).slice(2)+'.'+String(d.getMonth()+1).padStart(2,'0'):String(s||'');}
 function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
 function toast(msg){var t=$('#toast');t.textContent=msg;t.classList.add('show');clearTimeout(toast._t);toast._t=setTimeout(function(){t.classList.remove('show');},2200);}
@@ -1279,8 +1281,9 @@ function loanChart(){
 
   out.push('<text x="'+(padL-6)+'" y="'+(Y(mx)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mx)+'</text>');
   out.push('<text x="'+(padL-6)+'" y="'+(Y(mn)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mn)+'</text>');
-  out.push('<text x="'+padL+'" y="'+(H-6)+'" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(all[0].x)+'</text>');
-  out.push('<text x="'+(W-padR)+'" y="'+(H-6)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(all[all.length-1].x)+'</text>');
+  out.push('<text x="'+padL+'" y="'+(H-6)+'" font-size="8" fill="currentColor" fill-opacity=".55">'+ymLabel(all[0].x)+'</text>');
+  if(d1>d0) out.push('<text x="'+(padL+plotW/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="8" fill="currentColor" fill-opacity=".42">'+ymLabel(ymd(new Date((d0.getTime()+d1.getTime())/2)))+'</text>');
+  out.push('<text x="'+(W-padR)+'" y="'+(H-6)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+ymLabel(all[all.length-1].x)+'</text>');
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="대출 잔액 추이">'+out.join('')+'</svg>';
 }
 
