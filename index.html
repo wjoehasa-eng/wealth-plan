@@ -1873,10 +1873,10 @@ function renderDebt(c){
   $('#debtFutureNote').innerHTML=fnote.join(' ');
 
   var kpis=[
-    {k:'지금 대출 (오늘)', v:fmtWon(n.total), d:'중도금 + 개인대출 잔액'},
-    {k:'입주 시 예상 (대환 후)', v:fmtWon(f.total), d:'주담대 + 개인 추가 대출'},
+    {k:'지금 대출 (오늘)', v:fmtWon(n.total), d:'중도금 + 개인대출'},
+    {k:'입주 시 예상 (대환 후)', v:fmtWon(f.total), d:'주담대 + 개인 추가'},
     {k:'입주 전 실행 예정', v:d.upcomingLoan>0?fmtWon(d.upcomingLoan):'—',
-      d:d.upcomingLoan>0?'남은 중도금 대출 실행분':'미완료 대출 일정 없음'},
+      d:d.upcomingLoan>0?'남은 중도금 실행분':'미완료 일정 없음'},
     {k:'이자 부담 (연)', v:n.interest>0?fmtWon(n.interest):'—', d:n.interest>0?('월 약 '+fmtWon(n.interest/12)):'개인대출 금리 기준'}
   ];
   $('#debtKpis').innerHTML=kpis.map(function(k){
