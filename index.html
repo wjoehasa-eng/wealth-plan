@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.7.2
+  입주 자금관리 — 설치형 웹앱(PWA) v4.7.3
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -57,6 +57,10 @@
         슬라이더마다 −50만 / −10만 / +10만 / +50만(주식은 ±100만·±500만) 미세 조절 버튼을 붙이고
         range에 touch-action:pan-y를 주어 상하 스크롤과 겹쳐 튕기지 않게 했다. 필요액이 한도를 넘으면
         버튼은 한도까지만 맞추고 안내 문구로 알린다. 1번 시뮬레이터도 월 1,000만·주식 10억 이내로 좁혔다.
+  · v4.7.3: ⚖️ 시소 카드에도 1번 시뮬레이터와 같은 잠금을 붙였다 — 기본은 잠김(스크롤·스치기로 가상 값이 바뀌지 않음).
+        슬라이더나 그 줄의 −/+ 버튼을 0.35초 꾹 누르면 짧은 진동과 함께 그 줄만, 맨 아래 균형 버튼 줄을
+        꾹 누르면 카드 전체가 풀린다. 헤더의 🔒 잠금 / 🔓 조절 버튼으로 전체 토글.
+        잠금과 상관없이 시소는 여전히 독립 · 저장 안 됨(1번 시뮬레이터·localStorage·시트 그대로).
 -->
 <html lang="ko">
 <head>
@@ -487,6 +491,20 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 .ss-btns .btn:disabled{opacity:.45}
 .ss-btns .btn.ghost{flex:1 1 100%}
 @media (max-width:379px){.ss-btns .btn{flex:1 1 100%}}
+/* v4.7.3: 시소 카드 잠금 — 기본은 잠김, 꾹 누르기(0.35초) 또는 헤더 토글로 해제 */
+.ss-slide{position:relative;border-radius:10px}
+.ss-veil{position:absolute;inset:0;border-radius:10px;-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.ss-veil.pressing{background:color-mix(in srgb,var(--warn) 16%,transparent);box-shadow:inset 0 0 0 1px color-mix(in srgb,var(--warn) 50%,transparent)}
+.ss-veil.hidden{display:none!important}
+.ss-row.locked input[type=range]{opacity:.45;filter:grayscale(.55)}
+.ss-row.locked .ss-head output,.ss-row.locked .ss-head label{color:var(--sub)}
+.ss-lock-ico{font-size:10px;margin-left:4px;vertical-align:1px;color:var(--warn)}
+.ss-row.locked .ss-steps button{opacity:.42;border-style:dashed}
+.ss-steps.pressing button,.ss-btns.pressing .btn{background:color-mix(in srgb,var(--warn) 16%,transparent);border-color:color-mix(in srgb,var(--warn) 50%,transparent)}
+.ss-btns .btn.lockdim{opacity:.5;border-style:dashed}
+.ss-lock-note{font-size:11px;color:var(--warn);font-weight:700;margin:-2px 0 11px;line-height:1.5}
+.ss-lock-note.open{color:var(--ok)}
+#btnSsLock.on{background:var(--ok);border-color:var(--ok);color:#fff}
 .mini.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent)}
 .spacer{height:4px}
 </style>
@@ -604,13 +622,19 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="card" id="seesawCard">
-      <div class="card-head"><h2>⚖️ 월 저축 ↔ 주식 시소</h2><span class="hint">독립 · 저장 안 됨</span></div>
+      <div class="card-head"><h2>⚖️ 월 저축 ↔ 주식 시소</h2>
+        <div class="head-btns">
+          <span class="hint">독립 · 저장 안 됨</span>
+          <button class="mini" id="btnSsLock" aria-pressed="true" title="시소 잠금 — 꾹 누르거나 이 버튼을 눌러 조절">🔒 잠금</button>
+        </div>
+      </div>
+      <div class="ss-lock-note" id="ssLockNote">🔒 잠김 — 슬라이더나 −/+ 버튼을 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 줄만 조절되고, 맨 아래 균형 버튼 줄을 꾹 누르면 카드 전체가 풀립니다.</div>
       <div class="ss-big idle" id="seesawBig"><span class="ss-big-v">—</span></div>
       <div class="ssbars" id="seesawBars"></div>
       <div class="ss-ctl">
-        <div class="ss-row">
-          <div class="ss-head"><label for="ssMonthly">가상 월 저축</label><output id="ssMonthlyOut">—</output></div>
-          <input type="range" id="ssMonthly" min="0" max="10000000" step="100000" value="0" aria-label="가상 월 저축">
+        <div class="ss-row" data-ssid="ssMonthly">
+          <div class="ss-head"><label for="ssMonthly">가상 월 저축<span class="ss-lock-ico" id="ssico-ssMonthly" aria-hidden="true">🔒</span></label><output id="ssMonthlyOut">—</output></div>
+          <div class="ss-slide"><input type="range" id="ssMonthly" min="0" max="10000000" step="100000" value="0" aria-label="가상 월 저축" disabled aria-disabled="true"><span class="ss-veil" id="ssveil-ssMonthly" aria-hidden="true"></span></div>
           <div class="ss-foot"><span>0</span><span class="need" id="ssMonthlyNeed"></span><span id="ssMonthlyMax">1,000만</span></div>
           <div class="ss-steps" data-key="monthly">
             <button type="button" data-d="-500000" aria-label="가상 월 저축 50만원 줄이기">−50만</button>
@@ -619,9 +643,9 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
             <button type="button" data-d="500000" aria-label="가상 월 저축 50만원 늘리기">+50만</button>
           </div>
         </div>
-        <div class="ss-row">
-          <div class="ss-head"><label for="ssStock">가상 주식 자산</label><output id="ssStockOut">—</output></div>
-          <input type="range" id="ssStock" min="0" max="500000000" step="500000" value="0" aria-label="가상 주식 자산">
+        <div class="ss-row" data-ssid="ssStock">
+          <div class="ss-head"><label for="ssStock">가상 주식 자산<span class="ss-lock-ico" id="ssico-ssStock" aria-hidden="true">🔒</span></label><output id="ssStockOut">—</output></div>
+          <div class="ss-slide"><input type="range" id="ssStock" min="0" max="500000000" step="500000" value="0" aria-label="가상 주식 자산" disabled aria-disabled="true"><span class="ss-veil" id="ssveil-ssStock" aria-hidden="true"></span></div>
           <div class="ss-foot"><span>0</span><span class="need" id="ssStockNeed"></span><span id="ssStockMax">5억</span></div>
           <div class="ss-steps" data-key="stock">
             <button type="button" data-d="-5000000" aria-label="가상 주식 자산 500만원 줄이기">−500만</button>
@@ -632,7 +656,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         </div>
       </div>
       <div class="ss-note" id="ssNote"></div>
-      <div class="ss-btns">
+      <div class="ss-btns" id="ssBtnRow">
         <button class="btn" id="btnBalanceStock">월 저축 고정 → 필요 주식</button>
         <button class="btn" id="btnBalanceMonthly">주식 고정 → 필요 월 저축</button>
         <button class="btn ghost" id="btnSeesawReset">↺ 기준값으로</button>
@@ -902,7 +926,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.7.2';
+var APP_VERSION='4.7.3';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -1433,6 +1457,7 @@ function renderSeesaw(c){
     if(note) note.textContent='';
     [sm,st,bm,bs,rs].forEach(function(x){ if(x) x.disabled=true; });
     steps.forEach(function(x){ x.disabled=true; });
+    ssCanUse=false; applySsLock();      /* v4.7.3: 목표·기간이 없으면 잠금과 상관없이 모두 잠금 */
     return;
   }
 
@@ -1479,6 +1504,7 @@ function renderSeesaw(c){
   }
   [bm,bs,rs].forEach(function(x){ if(x) x.disabled=false; });
   steps.forEach(function(x){ x.disabled=false; });
+  ssCanUse=true; applySsLock();         /* v4.7.3: 렌더 뒤에 잠금 상태를 다시 덮어쓴다 */
 }
 /* --- 시소 조작 (모두 카드 안의 가상 값만 바꾼다. saveState/commitSummary 호출 없음) --- */
 function ssApply(monthly, stock, msg){
@@ -1523,11 +1549,13 @@ function ssStep(key, d){
 }
 $('#ssMonthly').addEventListener('input',function(){ ssApply(num(this.value), null); });
 $('#ssStock').addEventListener('input',function(){ ssApply(null, num(this.value)); });
-$('#btnSeesawReset').addEventListener('click',seesawReset);
+$('#btnSeesawReset').addEventListener('click',function(){ if(!ssGate('all')) return; seesawReset(); });
 $$('.ss-steps').forEach(function(box){
   box.addEventListener('click',function(e){
     var b=e.target.closest?e.target.closest('button[data-d]'):null;
     if(!b || b.disabled) return;
+    var row=box.closest('.ss-row');
+    if(!ssGate(row?row.getAttribute('data-ssid'):'all')) return;
     ssStep(box.getAttribute('data-key'), num(b.getAttribute('data-d')));
   });
 });
@@ -2193,9 +2221,9 @@ $('#btnSimReset').addEventListener('click',function(){
   simTempOpen={}; applySimLock();
   commitSummary(); toast('시뮬레이터를 초기값으로 되돌렸습니다');
 });
-/* v4.7: 시소 원클릭 균형 — 슬라이더 잠금과 상관없이 바로 반영하고 저장한다 */
-$('#btnBalanceMonthly').addEventListener('click',seesawSetMonthly);
-$('#btnBalanceStock').addEventListener('click',seesawSetStock);
+/* v4.7: 시소 원클릭 균형 — 잠금을 푼 상태에서만 반영한다(v4.7.3) */
+$('#btnBalanceMonthly').addEventListener('click',function(){ if(ssGate('all')) seesawSetMonthly(); });
+$('#btnBalanceStock').addEventListener('click',function(){ if(ssGate('all')) seesawSetStock(); });
 
 /* ----------------------------------------------------------- 시뮬레이터 잠금 -----------------------------------------------------------
  * 스크롤하다 스쳐서 값이 바뀌는 것을 막는다. 기본은 잠김.
@@ -2284,6 +2312,120 @@ $('#btnSimLock').addEventListener('click',function(){
   simTempOpen={}; SIM_IDS.forEach(simClearTimers);
   applySimLock();
   toast(simLocked?'시뮬레이터를 잠갔습니다 — 스크롤해도 값이 바뀌지 않습니다':'시뮬레이터 조절 — 금액을 누르면 직접 입력할 수 있습니다');
+});
+
+/* ----------------------------------------------------------- 시소 잠금 (v4.7.3)
+ * ⚖️ 시소 카드도 1번 시뮬레이터와 같은 방식 — 기본은 잠김(스크롤·스치기로 가상 값이 바뀌지 않음).
+ *  · 슬라이더나 그 줄의 −/+ 버튼을 0.35초 꾹 누르면 진동(지원 기기)과 함께 그 줄만 풀리고, 손을 떼고 잠시 뒤 다시 잠긴다.
+ *  · 맨 아래 균형 버튼 줄을 꾹 누르면 카드 전체가 풀린다.
+ *  · 헤더의 🔒 잠금 / 🔓 조절 버튼으로 전체를 한 번에 켜고 끈다.
+ *  · 잠금과 상관없이 시소 값은 state(localStorage·구글 시트)에 저장되지 않는다(독립 · 저장 안 됨).
+ */
+var SS_IDS=['ssMonthly','ssStock'];
+var SS_RELOCK_MS=1200;
+var ssLocked=true, ssTempOpen={}, ssRelockTimers={}, ssCanUse=false, ssOpenedAt=0;
+
+function ssRowOf(id){ var el=$('#'+id); return el?el.closest('.ss-row'):null; }
+function ssIsOpen(id){ return !ssLocked || !!ssTempOpen[id]; }
+function ssBalanceEls(){
+  return ['#btnBalanceMonthly','#btnBalanceStock','#btnSeesawReset'].map(function(s){ return $(s); }).filter(function(x){ return !!x; });
+}
+function applySsLock(){
+  SS_IDS.forEach(function(id){
+    var inp=$('#'+id); if(!inp) return;
+    var open=ssIsOpen(id), row=ssRowOf(id), veil=$('#ssveil-'+id), ico=$('#ssico-'+id);
+    inp.disabled=!(ssCanUse && open);
+    inp.setAttribute('aria-disabled',(ssCanUse&&open)?'false':'true');
+    if(row) row.classList.toggle('locked',!open);
+    if(veil) veil.classList.toggle('hidden', open && ssCanUse);
+    if(ico) ico.classList.toggle('hidden', open);
+  });
+  ssBalanceEls().forEach(function(b){
+    b.classList.toggle('lockdim',ssLocked);
+    b.setAttribute('aria-disabled',(ssCanUse&&!ssLocked)?'false':'true');
+  });
+  var lb=$('#btnSsLock');
+  if(lb){
+    lb.textContent=ssLocked?'🔒 잠금':'🔓 조절';
+    lb.classList.toggle('on',!ssLocked);
+    lb.setAttribute('aria-pressed', ssLocked?'true':'false');
+    lb.title=ssLocked?'시소 잠금 — 꾹 누르거나 이 버튼을 눌러 조절':'시소 조절 중 — 다시 누르면 잠깁니다';
+  }
+  var n=$('#ssLockNote');
+  if(n){
+    n.classList.toggle('open',!ssLocked);
+    n.innerHTML = ssLocked
+      ? '🔒 잠김 — 슬라이더나 −/+ 버튼을 <b>0.35초 꾹 누르면</b> 짧은 진동과 함께 그 줄만 조절되고, 맨 아래 균형 버튼 줄을 꾹 누르면 카드 전체가 풀립니다.'
+      : '🔓 조절 중 — 여기서 움직인 값은 <b>저장되지 않는 가상 값</b>입니다. 다 쓰면 <b>🔒 잠금</b>을 눌러 두세요.';
+  }
+}
+function ssRelockSoon(id,ms){
+  if(!ssTempOpen[id]) return;
+  if(ssRelockTimers[id]) clearTimeout(ssRelockTimers[id]);
+  ssRelockTimers[id]=setTimeout(function(){
+    delete ssRelockTimers[id];
+    if(ssTempOpen[id]){ delete ssTempOpen[id]; applySsLock(); }
+  }, ms);
+}
+function ssClearTimers(id){
+  if(ssRelockTimers[id]){ clearTimeout(ssRelockTimers[id]); delete ssRelockTimers[id]; }
+}
+function ssUnlockOne(id){
+  if(!ssLocked || ssTempOpen[id] || !ssCanUse) return;
+  ssTempOpen[id]=true; ssOpenedAt=Date.now();
+  try{ if(navigator && typeof navigator.vibrate==='function') navigator.vibrate(25); }catch(e){}
+  applySsLock();
+  toast('이 줄을 조절할 수 있습니다 — 값은 그대로이고 저장되지 않습니다');
+  ssRelockSoon(id, 8000);            // 만지지 않으면 8초 뒤 다시 잠김
+}
+function ssUnlockAll(){
+  if(!ssLocked || !ssCanUse) return;
+  ssLocked=false; ssTempOpen={}; SS_IDS.forEach(ssClearTimers); ssOpenedAt=Date.now();
+  try{ if(navigator && typeof navigator.vibrate==='function') navigator.vibrate(25); }catch(e){}
+  applySsLock();
+  toast('시소 카드 전체를 조절할 수 있습니다 — 가상 값일 뿐 저장되지 않습니다');
+}
+/* 탭 가드 — 잠겨 있으면 값을 움직이지 않고 안내만 한다. 꾹 눌러 방금 연 직후의 click은 무시 */
+function ssGate(scope){
+  if(!ssCanUse) return false;
+  if(Date.now()-ssOpenedAt < 600) return false;
+  var ok=(scope==='all')?(!ssLocked):ssIsOpen(scope);
+  if(!ok) toast('시소 카드가 잠겨 있습니다 — 0.35초 꾹 누르거나 🔒 잠금 버튼을 누르세요');
+  return ok;
+}
+function ssBindHold(el,onHold){
+  if(!el) return;
+  var timer=null, sx=0, sy=0;
+  function cancel(){ if(timer){ clearTimeout(timer); timer=null; } el.classList.remove('pressing'); }
+  el.addEventListener('pointerdown',function(e){
+    if(!ssLocked || !ssCanUse) return;
+    sx=e.clientX||0; sy=e.clientY||0;
+    el.classList.add('pressing');
+    timer=setTimeout(function(){ timer=null; el.classList.remove('pressing'); onHold(); }, LONG_PRESS_MS);
+  });
+  el.addEventListener('pointermove',function(e){
+    if(!timer) return;
+    if(Math.abs((e.clientX||0)-sx)>8 || Math.abs((e.clientY||0)-sy)>8) cancel();   // 스크롤로 판단 → 해제 취소
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(ev){ el.addEventListener(ev,cancel); });
+  el.addEventListener('contextmenu',function(e){ e.preventDefault(); });
+}
+SS_IDS.forEach(function(id){
+  ssBindHold($('#ssveil-'+id), function(){ ssUnlockOne(id); });
+  var row=ssRowOf(id);
+  if(row) ssBindHold(row.querySelector('.ss-steps'), function(){ ssUnlockOne(id); });
+  var inp=$('#'+id);
+  if(inp){
+    inp.addEventListener('input',function(){ if(ssTempOpen[id]) ssClearTimers(id); });
+    inp.addEventListener('change',function(){ if(ssTempOpen[id]) ssRelockSoon(id, SS_RELOCK_MS); });
+  }
+});
+ssBindHold($('#ssBtnRow'), ssUnlockAll);
+$('#btnSsLock').addEventListener('click',function(){
+  ssLocked=!ssLocked;
+  ssTempOpen={}; SS_IDS.forEach(ssClearTimers);
+  applySsLock();
+  toast(ssLocked?'시소 카드를 잠갔습니다 — 스크롤해도 값이 바뀌지 않습니다':'시소 조절 — 가상 값만 바뀌고 저장되지 않습니다');
 });
 
 /* ----------------------------------------------------------- 시뮬레이터 직접 입력 (v4.5)
@@ -3289,6 +3431,7 @@ $('#btnReset').addEventListener('click',function(){
 loadState();
 setEditMode(false);   /* 새로 고치면 항상 읽기 전용에서 시작 */
 applySimLock();       /* 시뮬레이터도 항상 잠긴 상태에서 시작 */
+applySsLock();        /* v4.7.3: 시소 카드도 잠긴 상태에서 시작 */
 renderAll();
 initSync();
 
