@@ -433,18 +433,41 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 .debt-mini-future{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--sub);
   margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
 .debt-mini-future b{color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
-/* v4.7: 월 저축 ↔ 주식 자산 시소 */
-.seesaw-note{margin-top:9px;padding:9px 11px;border-radius:11px;font-size:12px;font-weight:800;line-height:1.5}
-.seesaw-note .t1{display:block}
-.seesaw-note .t2{display:block;margin-top:3px;font-weight:600;font-size:11.5px;color:var(--ink2)}
-.seesaw-note.bad{background:var(--bad-soft);color:var(--bad)}
-.seesaw-note.ok{background:var(--ok-soft);color:var(--ok)}
-.seesaw-note.idle{background:var(--line2);color:var(--sub)}
-.seesaw-btns{display:flex;gap:8px;margin-top:10px}
-.seesaw-btns .btn:disabled{opacity:.45}
-.seesaw-btns .btn{flex:1;min-width:0;font-size:12.5px;padding:11px 8px;line-height:1.35}
-.seesaw-foot{margin-top:8px;font-size:10.5px;color:var(--sub);line-height:1.5}
-@media (max-width:379px){.seesaw-btns{flex-direction:column}}
+/* v4.7.1: 월 저축 ↔ 주식 자산 시소 — 1번 시뮬레이터와 분리된 샌드박스 */
+.ss-big{display:flex;align-items:baseline;gap:8px;margin:0 0 10px}
+.ss-big-k{font-size:12px;font-weight:800;color:var(--sub)}
+.ss-big-v{font-size:27px;font-weight:800;letter-spacing:-1px;font-variant-numeric:tabular-nums}
+.ss-big.bad .ss-big-v{color:var(--bad)}
+.ss-big.ok .ss-big-v{color:var(--ok)}
+.ss-big.idle .ss-big-v{color:var(--sub)}
+.ss-touch{touch-action:none;-webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent;cursor:crosshair}
+.ssbars{margin-top:2px}
+.ssbar-head{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--sub)}
+.ssbar-head b{color:var(--ink);font-weight:800;font-variant-numeric:tabular-nums}
+.ssbar{display:flex;height:22px;border-radius:7px;overflow:hidden;background:var(--line2);margin-top:5px}
+.ssbar .seg{height:100%;transition:width .06s linear}
+.ssbar .seg.m{background:#8b5cf6}
+.ssbar .seg.s{background:#0ea5e9}
+.ssbar .seg.gap{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--bad) 26%,transparent),color-mix(in srgb,var(--bad) 26%,transparent) 6px,transparent 6px,transparent 12px)}
+.ssbar .seg.over{background:#0f9d58}
+.ssbar-legend{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:5px;font-size:11px;color:var(--sub);font-variant-numeric:tabular-nums}
+.ssbar-legend i{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;vertical-align:0}
+.ss-ctl{margin-top:16px;display:flex;flex-direction:column;gap:12px}
+.ss-row{display:block}
+.ss-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px}
+.ss-head label{font-size:12.5px;font-weight:700;color:var(--ink2)}
+.ss-head output{font-size:17px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.ss-row input[type=range]{height:40px;margin-top:0}
+.ss-row input[type=range]::-webkit-slider-runnable-track{height:8px}
+.ss-row input[type=range]::-webkit-slider-thumb{width:30px;height:30px;margin-top:-11px}
+.ss-row input[type=range]::-moz-range-thumb{width:26px;height:26px}
+.ss-foot{display:flex;justify-content:space-between;gap:8px;font-size:11px;color:var(--sub);margin-top:-6px}
+.ss-foot .need{font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums}
+.ss-btns{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.ss-btns .btn{flex:1 1 44%;min-width:0;font-size:12.5px;padding:11px 8px;line-height:1.35}
+.ss-btns .btn:disabled{opacity:.45}
+.ss-btns .btn.ghost{flex:1 1 100%}
+@media (max-width:379px){.ss-btns .btn{flex:1 1 100%}}
 .mini.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent)}
 .spacer{height:4px}
 </style>
@@ -562,14 +585,27 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="card" id="seesawCard">
-      <div class="card-head"><h2>⚖️ 월 저축 ↔ 주식 자산 시소</h2><span class="hint">부족분 0원 맞추기</span></div>
-      <div class="chart" id="seesawChart"></div>
-      <div class="seesaw-note idle" id="seesawNote"></div>
-      <div class="seesaw-btns">
-        <button class="btn" id="btnBalanceMonthly">주식 고정 → 필요 월 저축</button>
-        <button class="btn" id="btnBalanceStock">월 저축 고정 → 필요 주식</button>
+      <div class="card-head"><h2>⚖️ 월 저축 ↔ 주식 시소</h2><span class="hint">독립 · 저장 안 됨</span></div>
+      <div class="ss-big idle" id="seesawBig"><span class="ss-big-k">부족</span><span class="ss-big-v">—</span></div>
+      <div class="chart ss-touch" id="seesawChart"></div>
+      <div class="ssbars" id="seesawBars"></div>
+      <div class="ss-ctl">
+        <div class="ss-row">
+          <div class="ss-head"><label for="ssMonthly">가상 월 저축</label><output id="ssMonthlyOut">—</output></div>
+          <input type="range" id="ssMonthly" min="0" max="10000000" step="100000" value="0" aria-label="가상 월 저축">
+          <div class="ss-foot"><span>0</span><span class="need" id="ssMonthlyNeed"></span><span id="ssMonthlyMax"></span></div>
+        </div>
+        <div class="ss-row">
+          <div class="ss-head"><label for="ssStock">가상 주식 자산</label><output id="ssStockOut">—</output></div>
+          <input type="range" id="ssStock" min="0" max="400000000" step="1000000" value="0" aria-label="가상 주식 자산">
+          <div class="ss-foot"><span>0</span><span class="need" id="ssStockNeed"></span><span id="ssStockMax"></span></div>
+        </div>
       </div>
-      <div class="seesaw-foot" id="seesawFoot">가로 = 월 저축 · 세로 = 주식 자산 · 선 위는 여유, 선 아래는 부족입니다.</div>
+      <div class="ss-btns">
+        <button class="btn" id="btnBalanceStock">월 저축 고정 → 필요 주식</button>
+        <button class="btn" id="btnBalanceMonthly">주식 고정 → 필요 월 저축</button>
+        <button class="btn ghost" id="btnSeesawReset">↺ 기준값으로</button>
+      </div>
     </div>
 
     <div class="card" id="cashLoanCard">
@@ -1287,35 +1323,64 @@ function loanChart(){
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="대출 잔액 추이">'+out.join('')+'</svg>';
 }
 
-/* ----------------------------------------------------------- 시소 (v4.7)
- * 월 저축 × 남은 개월 + 주식 자산 = '부족 0원' 필요합계(required)
- *   required = 남은 필요 − 전세금 − 신규·승계 주담대 − 개인 추가 대출(입주용)
- * 선 위(주식이 더 많음) = 여유, 선 아래 = 부족. 현재 슬라이더 값에 점을 찍고,
- * 원클릭 버튼으로 월 저축 또는 주식 자산을 균형값으로 바로 옮긴다(슬라이더 잠금과 상관없이 반영).
+/* ----------------------------------------------------------- 시소 (v4.7.1: 1번 시뮬레이터와 분리된 샌드박스)
+ * 이 카드에서 값을 움직여도 state(localStorage·구글 시트)와 1번 시뮬레이터는 바뀌지 않는다.
+ *   필요합계(required) = 남은 필요 − 전세금 − 신규·승계 주담대 − 개인 추가 대출(입주용)
+ *   월 저축 누적 = 가상 월 저축 × 남은 개월
+ *   부족/여유 = 월 저축 누적 + 가상 주식 자산 − 필요합계
  */
-function seesawModel(c){
+var SS_CHART={W:360,H:218,padL:42,padR:12,padT:18,padB:30};
+function seesawModel(c){                 /* 1번 시뮬레이터 값 기준 — 슬라이더 범위 산정용 */
   c=c||calc();
   var required=Math.max(0, c.remaining-c.deposit-c.newLoan-c.extraLoan-c.personalHouse);
   var months=c.months, monthly=c.monthly, stock=c.stockValue+c.stockProfit;
-  var future=Math.round(monthly*months/1e4)*1e4;      /* calc()와 같은 만원 단위 정리값 */
-  var gap=future+stock-required;                       /* == c.gap 과 같은 값 */
-  var needMonthly=months>0?Math.max(0,(required-stock)/months):0;
-  var needMonthlyRounded=needMonthly>0?Math.ceil(needMonthly/100000)*100000:0;  /* 슬라이더 한 칸(10만원)에 맞춰 올림 */
-  var needStock=Math.max(0,required-future);
-  return {required:required, months:months, monthly:monthly, stock:stock, future:future, gap:gap,
-    needMonthly:needMonthly, needMonthlyRounded:needMonthlyRounded, needStock:needStock,
-    hasMonths:months>0, ok:gap>=-0.5, hasTarget:!!c.hasTarget};
+  var future=Math.round(monthly*months/1e4)*1e4;
+  return {required:required, months:months, monthly:monthly, stock:stock, future:future,
+    gap:future+stock-required, needStock:Math.max(0,required-future), hasTarget:!!c.hasTarget};
 }
-function seesawChart(m){
-  var xMax=Math.max(10000000, Math.ceil(Math.max(m.needMonthlyRounded, m.monthly)*1.5/1e6)*1e6);
-  var yMax=Math.max(50000000, Math.ceil(Math.max(m.required, m.stock)*1.15/1e8)*1e8);
-  var W=360,H=218,padL=42,padR=12,padT=18,padB=30;
+var ssState={monthly:null, stock:null, baseM:null, baseS:null, drag:false};
+function ssBase(c){
+  c=c||calc();
+  return {monthly:simMonthly(), stock:stockValueNow()+simProfit(),
+    required:Math.max(0, c.remaining-c.deposit-c.newLoan-c.extraLoan-c.personalHouse),
+    months:c.months, hasTarget:!!c.hasTarget, hasMonths:c.months>0};
+}
+function ssSync(c){
+  var b=ssBase(c);
+  /* 1번 시뮬레이터의 월 저축·주식 자산이 바뀌면 시소도 그 기준값에서 다시 시작한다 */
+  if(ssState.monthly==null || ssState.stock==null || ssState.baseM!==b.monthly || ssState.baseS!==b.stock){
+    ssState.monthly=b.monthly; ssState.stock=b.stock;
+    ssState.baseM=b.monthly; ssState.baseS=b.stock;
+  }
+  return b;
+}
+function ssModel(c){
+  var b=ssSync(c||calc());
+  var monthly=Math.max(0,num(ssState.monthly)), stock=Math.max(0,num(ssState.stock));
+  var future=b.months>0?Math.round(monthly*b.months/1e4)*1e4:0;
+  var total=future+stock, gap=total-b.required;
+  var needMonthly=b.months>0?Math.max(0,(b.required-stock)/b.months):0;
+  return {required:b.required, months:b.months, monthly:monthly, stock:stock, future:future, total:total, gap:gap,
+    needStock:Math.max(0,b.required-future), needMonthly:needMonthly,
+    needMonthlyRounded:needMonthly>0?Math.ceil(needMonthly/100000)*100000:0,
+    hasTarget:b.hasTarget, hasMonths:b.months>0, ok:gap>=-0.5,
+    isBase:(monthly===b.monthly && stock===b.stock), base:b};
+}
+function ssRange(m){
+  return {
+    xMax:Math.max(10000000, Math.ceil(Math.max(m.needMonthlyRounded, m.monthly, m.base.monthly)*1.4/1e6)*1e6),
+    yMax:Math.max(50000000, Math.ceil(Math.max(m.required, m.stock, m.base.stock)*1.15/1e8)*1e8)
+  };
+}
+function seesawChart(m, rg){
+  var xMax=rg.xMax, yMax=rg.yMax;
+  var W=SS_CHART.W, H=SS_CHART.H, padL=SS_CHART.padL, padR=SS_CHART.padR, padT=SS_CHART.padT, padB=SS_CHART.padB;
   var plotW=W-padL-padR, plotH=H-padT-padB;
   function sx(x){ return padL+(clamp(x,0,xMax)/xMax)*plotW; }
   function sy(y){ return padT+plotH-(clamp(y,0,yMax)/yMax)*plotH; }
   var out=[];
 
-  /* 눈금·안내선 */
+  /* 눈금 */
   [0,.5,1].forEach(function(r){
     var y=sy(yMax*r);
     out.push('<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="currentColor" stroke-opacity="'+(r?'.10':'.18')+'"/>');
@@ -1361,63 +1426,137 @@ function seesawChart(m){
   var bx=xMax*0.86, by=m.required-m.months*bx-yMax*0.09;
   if(by>=0 && by<yMax*0.45) out.push('<text x="'+sx(bx).toFixed(1)+'" y="'+sy(by).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="#dc2626" fill-opacity=".55">부족</text>');
 
-  /* 균형점 2개(월 저축만 올릴 때 / 주식만 올릴 때) */
-  if(m.needMonthlyRounded<=xMax) out.push('<circle cx="'+sx(m.needMonthlyRounded).toFixed(1)+'" cy="'+sy(m.stock).toFixed(1)+'" r="3.4" fill="none" stroke="#0f9d58" stroke-width="1.4" stroke-dasharray="2 2"/>');
-  if(m.needStock<=yMax) out.push('<circle cx="'+sx(m.monthly).toFixed(1)+'" cy="'+sy(m.needStock).toFixed(1)+'" r="3.4" fill="none" stroke="#0f9d58" stroke-width="1.4" stroke-dasharray="2 2"/>');
+  /* 기준점(1번 시뮬레이터 값) — 회색 테두리 */
+  out.push('<circle cx="'+sx(m.base.monthly).toFixed(1)+'" cy="'+sy(m.base.stock).toFixed(1)+'" r="5.4" fill="none" stroke="#94a3b8" stroke-width="1.6"/>');
 
-  /* 현재 위치 점 + 십자 점선 */
+  /* 지금 시소 위치 — 손으로 끄는 점 */
   var px=sx(m.monthly), py=sy(m.stock);
-  out.push('<line x1="'+px.toFixed(1)+'" y1="'+padT+'" x2="'+px.toFixed(1)+'" y2="'+(padT+plotH)+'" stroke="currentColor" stroke-opacity=".26" stroke-dasharray="2 3"/>');
-  out.push('<line x1="'+padL+'" y1="'+py.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+py.toFixed(1)+'" stroke="currentColor" stroke-opacity=".26" stroke-dasharray="2 3"/>');
-  out.push('<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="5.2" fill="#1d4ed8" stroke="#fff" stroke-width="2"/>');
+  out.push('<line x1="'+px.toFixed(1)+'" y1="'+padT+'" x2="'+px.toFixed(1)+'" y2="'+(padT+plotH)+'" stroke="currentColor" stroke-opacity=".22" stroke-dasharray="2 3"/>');
+  out.push('<line x1="'+padL+'" y1="'+py.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+py.toFixed(1)+'" stroke="currentColor" stroke-opacity=".22" stroke-dasharray="2 3"/>');
+  out.push('<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="7" fill="#1d4ed8" fill-opacity=".18"/>');
+  out.push('<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="5" fill="#1d4ed8" stroke="#fff" stroke-width="2"/>');
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="월 저축과 주식 자산의 부족 0원 경계">'+out.join('')+'</svg>';
 }
 function renderSeesaw(c){
   var el=$('#seesawChart'); if(!el) return;
-  var note=$('#seesawNote'), bm=$('#btnBalanceMonthly'), bs=$('#btnBalanceStock'), foot=$('#seesawFoot');
-  var m=seesawModel(c);
-  function idle(msg,footMsg){
-    el.innerHTML='<div class="empty">'+msg+'</div>';
-    note.className='seesaw-note idle'; note.innerHTML='<span class="t1">아직 시소를 그릴 수 없습니다.</span>';
-    if(bm) bm.disabled=true; if(bs) bs.disabled=true;
-    if(foot) foot.textContent=footMsg||'가로 = 월 저축 · 세로 = 주식 자산';
-  }
-  if(!m.hasTarget){ idle('목표 금액과 입주일을 넣으면 시소가 그려집니다.','설정에서 목표 금액·입주일을 넣으세요.'); return; }
-  if(!m.hasMonths){ idle('입주 목표일을 넣으면 남은 개월이 정해져 시소가 그려집니다.','설정에서 입주 목표일을 넣으세요.'); return; }
-  if(bm) bm.disabled=false;
-  if(bs) bs.disabled=false;
-  el.innerHTML=seesawChart(m);
-  if(foot) foot.textContent='가로 = 월 저축 · 세로 = 주식 자산 · 선 위는 여유, 선 아래는 부족입니다.';
-  if(m.required<=0){
-    note.className='seesaw-note ok';
-    note.innerHTML='<span class="t1">전세금·주담대·개인 추가 대출만으로 이미 충분합니다.</span><span class="t2">이 경우 월 저축·주식 자산 없이도 부족분은 0원입니다.</span>';
+  var big=$('#seesawBig'), bars=$('#seesawBars');
+  var sm=$('#ssMonthly'), st=$('#ssStock');
+  var outM=$('#ssMonthlyOut'), outS=$('#ssStockOut');
+  var needM=$('#ssMonthlyNeed'), needS=$('#ssStockNeed'), maxM=$('#ssMonthlyMax'), maxS=$('#ssStockMax');
+  var bm=$('#btnBalanceMonthly'), bs=$('#btnBalanceStock'), rs=$('#btnSeesawReset');
+  var m=ssModel(c);
+
+  if(!m.hasTarget || !m.hasMonths){
+    el.innerHTML='<div class="empty">목표 금액과 입주일을 넣으면 시소가 그려집니다.</div>';
+    if(big){ big.className='ss-big idle'; big.innerHTML='<span class="ss-big-k">부족</span><span class="ss-big-v">—</span>'; }
+    if(bars) bars.innerHTML='';
+    if(outM) outM.textContent='—';
+    if(outS) outS.textContent='—';
+    if(needM) needM.textContent='';
+    if(needS) needS.textContent='';
+    if(maxM) maxM.textContent='';
+    if(maxS) maxS.textContent='';
+    [sm,st,bm,bs,rs].forEach(function(x){ if(x) x.disabled=true; });
     return;
   }
-  var t1 = m.ok ? ('현재 위치: 여유 '+fmtShort(Math.abs(m.gap))) : ('현재 위치: 부족 '+fmtShort(-m.gap));
-  var t2 = m.ok ? ('월 '+fmtShort(m.monthly)+' · 주식 자산 '+fmtShort(m.stock)+' 조합으로 이미 부족분 0원을 넘겼습니다.')
-                : ('월 저축을 '+fmtShort(m.needMonthlyRounded)+'으로 올리거나 / 주식을 '+fmtShort(m.needStock)+'으로 올리면 딱 맞음');
-  note.className='seesaw-note '+(m.ok?'ok':'bad');
-  note.innerHTML='<span class="t1">'+esc(t1)+'</span><span class="t2">'+esc(t2)+'</span>';
+
+  var rg=ssRange(m), ok=m.ok;
+  if(big){
+    big.className='ss-big '+(ok?'ok':'bad');
+    big.innerHTML='<span class="ss-big-k">'+(ok?'여유':'부족')+'</span><span class="ss-big-v">'+esc(fmtShort(Math.abs(m.gap)))+'</span>';
+  }
+  el.innerHTML=seesawChart(m,rg);
+
+  /* 목표 달성 막대 — 월 저축 누적 + 주식 자산 vs 필요 합계 */
+  if(bars){
+    var scale=Math.max(m.required, m.total, 1);
+    var gapAmt=Math.max(0,m.required-m.total), overAmt=Math.max(0,m.total-m.required);
+    bars.innerHTML=
+      '<div class="ssbar-head"><span>부족 0원 목표 <b>'+esc(fmtShort(m.required))+'</b></span><span>합계 <b>'+esc(fmtShort(m.total))+'</b></span></div>'+
+      '<div class="ssbar" role="img" aria-label="가상 월 저축 누적과 주식 자산의 합계 대비 필요 합계">'+
+        '<span class="seg m" style="width:'+(m.future/scale*100).toFixed(2)+'%"></span>'+
+        '<span class="seg s" style="width:'+(m.stock/scale*100).toFixed(2)+'%"></span>'+
+        (gapAmt>0?'<span class="seg gap" style="width:'+(gapAmt/scale*100).toFixed(2)+'%"></span>':'')+
+        (overAmt>0?'<span class="seg over" style="width:'+(overAmt/scale*100).toFixed(2)+'%"></span>':'')+
+      '</div>'+
+      '<div class="ssbar-legend">'+
+        '<span><i style="background:#8b5cf6"></i>월 누적 '+esc(fmtShort(m.future))+'</span>'+
+        '<span><i style="background:#0ea5e9"></i>주식 '+esc(fmtShort(m.stock))+'</span>'+
+        '<span><i style="background:'+(ok?'#0f9d58':'#dc2626')+'"></i>'+(ok?'여유 ':'부족 ')+esc(fmtShort(Math.abs(m.gap)))+'</span>'+
+      '</div>';
+  }
+
+  if(sm){ sm.disabled=false; sm.min='0'; sm.max=String(rg.xMax); sm.step='100000';
+    var vm=String(clamp(Math.round(m.monthly),0,rg.xMax)); if(sm.value!==vm) sm.value=vm; }
+  if(st){ st.disabled=false; st.min='0'; st.max=String(rg.yMax); st.step='1000000';
+    var vs=String(clamp(Math.round(m.stock),0,rg.yMax)); if(st.value!==vs) st.value=vs; }
+  if(outM) outM.textContent=fmtShort(m.monthly);
+  if(outS) outS.textContent=fmtShort(m.stock);
+  if(needM) needM.textContent='필요 '+fmtShort(m.needMonthlyRounded);
+  if(needS) needS.textContent='필요 '+fmtShort(Math.ceil(m.needStock/1e6)*1e6);
+  if(maxM) maxM.textContent=fmtShort(rg.xMax);
+  if(maxS) maxS.textContent=fmtShort(rg.yMax);
+  [bm,bs,rs].forEach(function(x){ if(x) x.disabled=false; });
 }
-function seesawSetMonthly(){
-  var c=calc(), m=seesawModel(c);
-  if(!m.hasTarget){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
-  if(!m.hasMonths){ toast('설정에서 입주 목표일을 넣어 주세요'); return; }
-  var target=m.needMonthlyRounded;
-  state.settings.monthlyInvestSim=target;
-  commitSummary();
-  toast(target<=0 ? '주식 자산만으로 이미 충분합니다 — 월 저축 0원'
-    : ('월 저축을 '+fmtShort(target)+'으로 맞췄습니다 · 주식 자산 '+fmtShort(m.stock)+' 고정'));
+/* --- 시소 조작 (모두 카드 안의 가상 값만 바꾼다. saveState/commitSummary 호출 없음) --- */
+function ssApply(monthly, stock, msg){
+  if(monthly!=null) ssState.monthly=Math.max(0,Math.round(num(monthly)));
+  if(stock!=null) ssState.stock=Math.max(0,Math.round(num(stock)));
+  renderSeesaw(calc());
+  if(msg) toast(msg);
 }
-function seesawSetStock(){
-  var c=calc(), m=seesawModel(c);
-  if(!m.hasTarget){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
-  if(!m.hasMonths){ toast('설정에서 입주 목표일을 넣어 주세요'); return; }
-  var target=Math.max(0,Math.round(m.needStock));
-  setStockAssetTotal(target);
-  commitSummary();
-  toast('주식 자산을 '+fmtShort(target)+'으로 맞췄습니다 · 월 저축 '+fmtShort(m.monthly)+' 고정');
+function seesawSetMonthly(){                    /* 주식 고정 → 필요 월 저축 */
+  var m=ssModel(calc());
+  if(!m.hasTarget || !m.hasMonths){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
+  ssApply(m.needMonthlyRounded, null,
+    '가상 월 저축만 '+fmtShort(m.needMonthlyRounded)+'으로 — 1번 시뮬레이터는 그대로');
 }
+function seesawSetStock(){                      /* 월 저축 고정 → 필요 주식 */
+  var m=ssModel(calc());
+  if(!m.hasTarget || !m.hasMonths){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
+  var t=Math.ceil(m.needStock/1e6)*1e6;
+  ssApply(null, t, '가상 주식만 '+fmtShort(t)+'으로 — 1번 시뮬레이터는 그대로');
+}
+function seesawReset(){
+  var b=ssBase(calc());
+  ssState.monthly=b.monthly; ssState.stock=b.stock; ssState.baseM=b.monthly; ssState.baseS=b.stock;
+  renderSeesaw(calc());
+  toast('1번 시뮬레이터 기준값(월 '+fmtShort(b.monthly)+' · 주식 '+fmtShort(b.stock)+')으로 되돌렸습니다');
+}
+/* 차트 위 손가락/마우스 위치 → 가상 값 (탭한 곳으로 점이 바로 이동) */
+function ssChartValues(clientX, clientY){
+  var el=$('#seesawChart'), svg=el&&el.querySelector('svg'); if(!svg) return null;
+  var r=svg.getBoundingClientRect(); if(!r.width||!r.height) return null;
+  var m=ssModel(calc()); if(!m.hasTarget||!m.hasMonths) return null;
+  var rg=ssRange(m);
+  var vx=(clientX-r.left)/r.width*SS_CHART.W, vy=(clientY-r.top)/r.height*SS_CHART.H;
+  var fx=clamp((vx-SS_CHART.padL)/(SS_CHART.W-SS_CHART.padL-SS_CHART.padR),0,1);
+  var fy=clamp(1-(vy-SS_CHART.padT)/(SS_CHART.H-SS_CHART.padT-SS_CHART.padB),0,1);
+  return {monthly:Math.round(fx*rg.xMax/1e5)*1e5, stock:Math.round(fy*rg.yMax/1e6)*1e6};
+}
+$('#ssMonthly').addEventListener('input',function(){ ssApply(num(this.value), null); });
+$('#ssStock').addEventListener('input',function(){ ssApply(null, num(this.value)); });
+$('#btnSeesawReset').addEventListener('click',seesawReset);
+(function(){
+  var el=$('#seesawChart'); if(!el) return;
+  function move(e){
+    var v=ssChartValues(e.clientX,e.clientY); if(!v) return;
+    ssState.monthly=v.monthly; ssState.stock=v.stock; renderSeesaw(calc());
+  }
+  el.addEventListener('pointerdown',function(e){
+    if(e.pointerType==='mouse' && e.button!==0) return;
+    var m=ssModel(calc()); if(!m.hasTarget||!m.hasMonths) return;
+    ssState.drag=true; try{ el.setPointerCapture(e.pointerId); }catch(_){}
+    move(e); if(e.cancelable) e.preventDefault();
+  });
+  el.addEventListener('pointermove',function(e){
+    if(!ssState.drag) return;
+    move(e); if(e.cancelable) e.preventDefault();
+  });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){
+    el.addEventListener(t,function(){ ssState.drag=false; });
+  });
+})();
 
 /* ----------------------------------------------------------- 렌더: 요약 */
 function srowHtml(k,v,cls){
@@ -3045,7 +3184,9 @@ window.__wp={
   debt:function(){ return debtSummary(); },
   phaseCash:function(){ return phaseCashPlan(); },
   stockAsset:function(){ return stockAssetTotal(); },
-  seesaw:function(){ return seesawModel(calc()); },
+  seesaw:function(){ return ssModel(calc()); },
+  seesawSet:function(monthly,stock){ if(monthly!=null) ssState.monthly=num(monthly); if(stock!=null) ssState.stock=num(stock); renderSeesaw(calc()); return ssModel(calc()); },
+  seesawReset:function(){ seesawReset(); return ssModel(calc()); },
   loanProj:function(){ var a=loanActualPoints(); return {on:loanProjOn, actual:a, proj:loanProjection(a)}; },
   showTab:function(t){ showTab(t); },
   isBlank:function(){ return isBlank(state); },
