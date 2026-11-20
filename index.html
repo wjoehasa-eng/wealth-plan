@@ -1,6 +1,6 @@
 <!doctype html>
 <!--
-  입주 자금관리 — 설치형 웹앱(PWA) v4.6.0
+  입주 자금관리 — 설치형 웹앱(PWA) v4.7.0
   · 이 파일에는 어떤 개인 정보도 들어 있지 않습니다. (모든 값 0, 목록 비어 있음)
   · 데이터는 ① 이 기기 브라우저(localStorage) ② 본인 구글 시트(Apps Script)에만 저장됩니다.
   · 처음 사용: 화면 오른쪽 위 ⚙ → '기본 값' 입력, 또는 '구글 시트 연결'에서
@@ -38,6 +38,13 @@
         구조·브릿지·대출현황에서 한 줄로 표시한다(데이터·시트 호환 유지).
         '주식 평가금 + 주식 목표 수익'을 '주식 자산 (평가+수익+배당)' 하나로 묶어
         시뮬레이터 슬라이더·주식 탭·구조·브릿지 모두 한 값으로 다룬다.
+  · v4.7: '내 대출현황'을 두 시점으로 나눴다 — ① '지금 대출 (오늘 기준)' = 중도금·주택대출 잔액 + 등록된 개인대출 전체
+        (스택 바·합계도 이 기준), ② '입주 시 대환 후 예상 대출' = 신규·승계 주담대 + 개인 추가 대출(입주용) + 주택 무관 별도
+        개인대출(유지분). 중도금 잔액과 신규 주담대를 한 합계(예: 10억 4,150만)로 더해 보이던 중복 표시를 없앴다.
+        요약 탭에 '월 저축 ↔ 주식 자산 시소' 2차원 차트와 원클릭 균형 버튼(부족 0원 맞추기)을 더했다.
+        '앞으로 필요한 현금' ① 입주 전 자납에서는 '그때까지 모이는 돈' 줄과 여유/부족 배지를 빼고 낼 돈만 보여 준다.
+        '대출상환' 잔액 추이에 미래 예상 궤적(월 투입 상환 + 예정 중도금 대출 실행 → 입주 때 대환 0)을 점선으로 그리고
+        카드 머리의 버튼으로 실선만 보기와 전환할 수 있다(요약 시뮬레이터의 월 투입과 실시간 연동).
 -->
 <html lang="ko">
 <head>
@@ -416,6 +423,26 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 .sync-flash.show{opacity:1;transform:translate(-50%,0)}
 .sync-flash.ok{background:var(--ok);color:#fff}
 .sync-flash.err{background:var(--bad);color:#fff}
+/* v4.7: 대출현황 두 시점(지금 / 입주 시) + 배지 */
+.debt-when{display:inline-block;font-size:10px;font-weight:800;padding:1px 6px;border-radius:99px;margin-right:6px;vertical-align:1px;flex:0 0 auto;white-space:nowrap}
+.debt-when.now{background:var(--accent-soft);color:var(--accent)}
+.debt-when.future{background:var(--warn-soft);color:var(--warn)}
+.debt-mini-future{display:flex;align-items:baseline;justify-content:space-between;gap:8px;font-size:11.5px;color:var(--sub);
+  margin-top:8px;padding-top:8px;border-top:1px dashed var(--line)}
+.debt-mini-future b{color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap}
+/* v4.7: 월 저축 ↔ 주식 자산 시소 */
+.seesaw-note{margin-top:9px;padding:9px 11px;border-radius:11px;font-size:12px;font-weight:800;line-height:1.5}
+.seesaw-note .t1{display:block}
+.seesaw-note .t2{display:block;margin-top:3px;font-weight:600;font-size:11.5px;color:var(--ink2)}
+.seesaw-note.bad{background:var(--bad-soft);color:var(--bad)}
+.seesaw-note.ok{background:var(--ok-soft);color:var(--ok)}
+.seesaw-note.idle{background:var(--line2);color:var(--sub)}
+.seesaw-btns{display:flex;gap:8px;margin-top:10px}
+.seesaw-btns .btn:disabled{opacity:.45}
+.seesaw-btns .btn{flex:1;min-width:0;font-size:12.5px;padding:11px 8px;line-height:1.35}
+.seesaw-foot{margin-top:8px;font-size:10.5px;color:var(--sub);line-height:1.5}
+@media (max-width:379px){.seesaw-btns{flex-direction:column}}
+.mini.on{background:var(--accent-soft);border-color:color-mix(in srgb,var(--accent) 35%,transparent);color:var(--accent)}
 .spacer{height:4px}
 </style>
 </head>
@@ -467,9 +494,10 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 
     <div class="card debt-card" id="loanStatusCard">
       <div class="card-head"><h2>내 대출현황</h2><button class="mini" id="btnDebtDetail">자세히 ›</button></div>
-      <div class="debt-total"><span class="k">총 대출 잔액</span><span class="v" id="debtTotalMini">0원</span></div>
+      <div class="debt-total"><span class="k">지금 갚고 있는 대출 (오늘 기준)</span><span class="v" id="debtTotalMini">0원</span></div>
       <div class="debt-bar" id="debtMiniBar"></div>
       <div class="debt-split" id="debtMiniSplit"></div>
+      <div class="debt-mini-future" id="debtMiniFuture"></div>
       <div class="note" id="debtMiniNote" style="margin-top:8px"></div>
     </div>
 
@@ -479,7 +507,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     </div>
 
     <div class="kpis" id="kpis"></div>
-    <div class="note" id="kpiNote">필요 월 저축액과 필요 주식 자산은 <b>나머지 하나를 계획대로</b> 두었을 때의 값입니다. 둘을 함께 채우면 서로 줄어듭니다.</div>
+    <div class="note" id="kpiNote">필요 월 저축액과 필요 주식 자산은 <b>나머지 하나를 계획대로</b> 두었을 때의 값입니다. 둘을 함께 채우면 서로 줄어듭니다. 아래 <b>⚖️ 시소</b>에서 그 관계를 직접 조절해 볼 수 있습니다.</div>
 
     <div class="card">
       <div class="card-head"><h2>자금 브릿지</h2><span class="hint">남은 필요 → 확보</span></div>
@@ -533,6 +561,17 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
       </details>
     </div>
 
+    <div class="card" id="seesawCard">
+      <div class="card-head"><h2>⚖️ 월 저축 ↔ 주식 자산 시소</h2><span class="hint">부족분 0원 맞추기</span></div>
+      <div class="chart" id="seesawChart"></div>
+      <div class="seesaw-note idle" id="seesawNote"></div>
+      <div class="seesaw-btns">
+        <button class="btn" id="btnBalanceMonthly">주식 고정 → 필요 월 저축</button>
+        <button class="btn" id="btnBalanceStock">월 저축 고정 → 필요 주식</button>
+      </div>
+      <div class="seesaw-foot" id="seesawFoot">가로 = 월 저축 · 세로 = 주식 자산 · 선 위는 여유, 선 아래는 부족입니다.</div>
+    </div>
+
     <div class="card" id="cashLoanCard">
       <div class="card-head"><h2>💵 앞으로 필요한 현금 (시기별)</h2><span class="hint">슬라이더 조절 시 실시간 반영</span></div>
       <div id="cashLoanBody"></div>
@@ -562,8 +601,10 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
   <section class="view hidden" id="view-loans">
     <div class="kpis" id="loanKpis"></div>
     <div class="card">
-      <div class="card-head"><h2>잔액 감소 추이</h2><span class="hint" id="loanChartHint"></span></div>
+      <div class="card-head"><h2>잔액 감소 추이</h2><button class="mini on" id="btnLoanProj" aria-pressed="true" title="미래 예상 추이(점선) 켜기/끄기">실선+점선</button></div>
       <div class="chart" id="loanChart"></div>
+      <div class="legend" id="loanChartLegend"></div>
+      <div class="hint" id="loanChartHint" style="margin-top:5px"></div>
     </div>
     <div class="card">
       <div class="card-head"><h2>상환 내역</h2><button class="mini" id="btnAddLoan">+ 추가</button></div>
@@ -584,10 +625,18 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
   <!-- ============ 대출현황 ============ -->
   <section class="view hidden" id="view-debt">
     <div class="card">
-      <div class="card-head"><h2>총 대출 잔액</h2><span class="hint" id="debtTotalHint"></span></div>
-      <div class="debt-total"><span class="k">주택 관련 + 별도 개인</span><span class="v" id="debtTotal">0원</span></div>
-      <div class="debt-bar" id="debtBar"></div>
-      <div class="debt-legend" id="debtLegend"></div>
+      <div class="card-head"><h2>지금 대출 <span class="bq house">오늘 기준</span></h2><span class="hint" id="debtNowHint"></span></div>
+      <div class="debt-total"><span class="k">지금 갚고 있는 대출 잔액</span><span class="v" id="debtNowTotal">0원</span></div>
+      <div class="debt-bar" id="debtNowBar"></div>
+      <div class="debt-legend" id="debtNowLegend"></div>
+    </div>
+
+    <div class="card">
+      <div class="card-head"><h2>입주 시 대환 후 예상 대출 <span class="bq personal" id="debtFutureWhen">입주 시</span></h2><span class="hint" id="debtFutureHint"></span></div>
+      <div class="debt-total"><span class="k">입주할 때 남는 대출 (예상)</span><span class="v" id="debtFutureTotal">0원</span></div>
+      <div class="debt-bar" id="debtFutureBar"></div>
+      <div class="debt-legend" id="debtFutureLegend"></div>
+      <div class="note" id="debtFutureNote" style="margin-top:9px"></div>
     </div>
 
     <div class="kpis" id="debtKpis"></div>
@@ -595,7 +644,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
     <div class="card">
       <div class="card-head"><h2>주택 관련 대출 <span class="bq house">파랑</span></h2><span class="hint">중도금 잔액 + 주담대</span></div>
       <div class="list" id="debtHouseList"></div>
-      <div class="note" style="margin-top:9px">잔액은 <b>대출상환</b> 탭의 최근 잔액과 <b>설정·시뮬레이터</b>의 입주 시 신규·승계 주담대에서 가져옵니다.</div>
+      <div class="note" style="margin-top:9px">중도금 잔액은 <b>대출상환</b> 탭의 최근 잔액, 신규·승계 주담대는 <b>설정·시뮬레이터</b>에서 가져옵니다.</div>
     </div>
 
     <div class="card">
@@ -765,13 +814,13 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
         <b>필요 월 저축액</b> = (남은 필요 − 전세금 − 주담대 − 개인 추가 대출 − 주식 자산) ÷ 남은 개월<br>
         <b>필요 주식 자산</b> = 남은 필요 − 전세금 − 주담대 − 개인 추가 대출 − 월급 누적<br>
         달성률 = (이미 낸 내 돈 + 확보 재원) ÷ 총 목표. 신호: 100% 이상 = 여유, 97~100% = 근접<br>
-        <b>내 대출현황</b> = 주택 관련(중도금 잔액 + 신규 주담대, 파랑) + 개인(개인대출 목록 + 개인 추가 대출, 주황).<br>
+        <b>내 대출현황</b>은 두 시점으로 나눠 보여 줍니다 — <b>지금(오늘)</b> = 중도금 잔액 + 등록된 개인대출, <b>입주 시(대환 후)</b> = 신규·승계 주담대 + 개인 추가 대출(입주용) + 주택 무관 별도 개인대출(유지). 중도금은 입주 때 대환되므로 두 합계를 더하지 않습니다.<br>
         개인대출 중 <b>🏠 입주 자금에 쓰기</b>를 체크한 것만 확보 재원에 넣고, 체크하지 않은 <b>별도(주택 무관)</b> 개인대출은 <b>표시만</b> 합니다.
       </div>
     </div>
 
     <div class="sec" style="text-align:center">
-      <div class="note">입주 자금관리 v4.6 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
+      <div class="note">입주 자금관리 v4.7 · 데이터는 이 기기와 본인 구글 시트에만 저장됩니다.</div>
     </div>
   </div>
 </div>
@@ -786,7 +835,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 5px;border-radius:5px}
 /* ----------------------------------------------------------- 유틸 */
 var LS_STATE='wealthplan.state.v1', LS_URL='wealthplan.sheetUrl.v1';
 var LS_PREV='wealthplan.prevState.v1';   // 덮어쓰기 직전 상태(한 단계 되돌리기)
-var APP_VERSION='4.6.0';
+var APP_VERSION='4.7.0';
 function $(s,r){return (r||document).querySelector(s);}
 function $$(s,r){return Array.prototype.slice.call((r||document).querySelectorAll(s));}
 function num(v){
@@ -1125,40 +1174,246 @@ function waterfall(c){
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="남은 필요 자금과 확보 재원 비교 차트">'+out.join('')+'</svg>';
 }
 
-function loanChart(){
-  var ls=state.loans.slice().sort(sortByDate);
-  var pts=[];
+/* ----------------------------------------------------------- 잔액 추이 (v4.7)
+ * 실선 = 지금까지 실제 기록(상환·중도금 실행으로 오르내린 실제 잔액)
+ * 점선 = 예상 — 마지막 기록 다음 달부터 매달 simMonthly() 만큼 원금이 줄고,
+ *        납입일정에서 자금 성격이 '대출'이고 아직 완료가 아닌 일정이 도래하는 달에 그 금액만큼 계단식으로 오르며,
+ *        입주 목표일에는 대환(주담대·전세·현금)으로 이 중도금 계좌가 0원이 된다.
+ * 상단 버튼(btnLoanProj)으로 점선을 끄고 실선만 볼 수 있고, 요약 시뮬레이터의 월 투입을 바꾸면 기울기가 바로 바뀐다.
+ */
+var LS_LOANPROJ='wealthplan.loanProj.v1';
+var loanProjOn=true;
+try{ if(localStorage.getItem(LS_LOANPROJ)==='0') loanProjOn=false; }catch(e){}
+
+function loanActualPoints(){
+  var ls=state.loans.slice().sort(sortByDate), pts=[];
   if(ls.length){
     var first=ls[0];
     pts.push({x:first.date, v:num(first.balance)+num(first.principal), start:true});
     ls.forEach(function(l){ if(l.balance!=null) pts.push({x:l.date, v:num(l.balance)}); });
   }
-  if(pts.length<2){
+  return pts;
+}
+function loanProjection(actual){
+  var s=state.settings, out={pts:[],execs:[],monthly:simMonthly(),end:null};
+  if(!actual.length) return out;
+  var last=actual[actual.length-1], lastD=parseDate(last.x);
+  if(!lastD) return out;
+  var moveIn=parseDate(s.moveInDate);
+  var execs=state.schedule.filter(function(x){
+    if(x.status==='완료') return false;
+    if(fundOf(x)!=='대출') return false;
+    var d=parseDate(x.dueDate); if(!d||d<=lastD) return false;
+    if(moveIn && d>moveIn) return false;
+    return true;
+  }).map(function(x){
+    var d=parseDate(x.dueDate);
+    return {date:ymd(d), ym:ymd(d).slice(0,7), amt:num(x.amount), label:x.label||'대출'};
+  });
+  var bal=num(last.v), pts=[];
+  var cur=new Date(lastD.getFullYear(), lastD.getMonth()+1, 1);
+  var stop=moveIn?new Date(moveIn.getFullYear(), moveIn.getMonth(), 1)
+                 :new Date(lastD.getFullYear()+3, lastD.getMonth(), 1);
+  var guard=0;
+  while(cur<stop && guard++<130){
+    var key=ymd(cur).slice(0,7), step=0;
+    bal=Math.max(0, bal-num(out.monthly));
+    execs.forEach(function(e){ if(e.ym===key){ bal+=e.amt; step+=e.amt; } });
+    pts.push({x:ymd(cur), v:Math.round(bal), ym:key, step:step});
+    cur=new Date(cur.getFullYear(), cur.getMonth()+1, 1);
+  }
+  if(moveIn && moveIn>lastD){
+    pts.push({x:ymd(moveIn), v:0, repay:true});
+    out.end={x:ymd(moveIn), label:'입주 대환'};
+  }
+  out.pts=pts; out.execs=execs;
+  return out;
+}
+function loanChart(){
+  var actual=loanActualPoints();
+  var proj=loanProjOn?loanProjection(actual):{pts:[],execs:[],monthly:0};
+  var all=actual.concat(proj.pts||[]);
+  if(all.length<2){
     return '<div class="empty">상환 내역이 2건 이상이면 잔액 추이가 그려집니다.</div>';
   }
-  var W=360,H=190,padL=34,padR=10,padT=14,padB=26;
+  var W=360,H=196,padL=36,padR=13,padT=16,padB=26;
   var plotW=W-padL-padR, plotH=H-padT-padB;
-  var vals=pts.map(function(p){return p.v;});
+  var vals=all.map(function(p){return p.v;});
   var mn=Math.min.apply(null,vals), mx=Math.max.apply(null,vals);
-  var span=(mx-mn)||1; var lo=Math.max(0,mn-span*0.25), hi=mx+span*0.12;
-  var d0=parseDate(pts[0].x)||today(), d1=parseDate(pts[pts.length-1].x)||today();
+  if(mx<=mn) mx=mn+1;
+  var span=mx-mn; var lo=Math.max(0,mn-span*0.25), hi=mx+span*0.12;
+  var d0=parseDate(all[0].x)||today(), d1=parseDate(all[all.length-1].x)||today();
   var total=Math.max(1,d1-d0);
-  function X(p){ var d=parseDate(p.x)||d0; return padL+( (d-d0)/total )*plotW; }
+  function X(p){ var d=parseDate(p.x)||d0; return padL+((d-d0)/total)*plotW; }
   function Y(v){ return padT+plotH-((v-lo)/(hi-lo))*plotH; }
 
-  var line=pts.map(function(p,i){ return (i?'L':'M')+X(p).toFixed(1)+' '+Y(p.v).toFixed(1); }).join(' ');
-  var area=line+' L'+X(pts[pts.length-1]).toFixed(1)+' '+(padT+plotH)+' L'+X(pts[0]).toFixed(1)+' '+(padT+plotH)+' Z';
   var out=[];
   out.push('<defs><linearGradient id="lg" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" stop-color="#2563eb" stop-opacity=".22"/><stop offset="100%" stop-color="#2563eb" stop-opacity="0"/></linearGradient></defs>');
   out.push('<line x1="'+padL+'" y1="'+(padT+plotH)+'" x2="'+(W-padR)+'" y2="'+(padT+plotH)+'" stroke="currentColor" stroke-opacity=".15"/>');
-  out.push('<path d="'+area+'" fill="url(#lg)"/>');
-  out.push('<path d="'+line+'" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>');
-  pts.forEach(function(p){ out.push('<circle cx="'+X(p).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="2.6" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>'); });
+  /* 가로 안내선 2개(최고·최저) */
+  [mx,mn].forEach(function(v){
+    out.push('<line x1="'+padL+'" y1="'+Y(v).toFixed(1)+'" x2="'+(W-padR)+'" y2="'+Y(v).toFixed(1)+'" stroke="currentColor" stroke-opacity=".08" stroke-dasharray="2 4"/>');
+  });
+
+  /* 실선: 실제 기록 */
+  if(actual.length>=2){
+    var line=actual.map(function(p,i){ return (i?'L':'M')+X(p).toFixed(1)+' '+Y(p.v).toFixed(1); }).join(' ');
+    var area=line+' L'+X(actual[actual.length-1]).toFixed(1)+' '+(padT+plotH)+' L'+X(actual[0]).toFixed(1)+' '+(padT+plotH)+' Z';
+    out.push('<path d="'+area+'" fill="url(#lg)"/>');
+    out.push('<path d="'+line+'" fill="none" stroke="#2563eb" stroke-width="2.2" stroke-linejoin="round"/>');
+  }
+  actual.forEach(function(p){ out.push('<circle cx="'+X(p).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="2.6" fill="#fff" stroke="#2563eb" stroke-width="1.6"/>'); });
+
+  /* 점선: 미래 예상 */
+  if(loanProjOn && proj.pts && proj.pts.length){
+    var pjk=[actual[actual.length-1]].concat(proj.pts);
+    var pline=pjk.map(function(p,i){ return (i?'L':'M')+X(p).toFixed(1)+' '+Y(p.v).toFixed(1); }).join(' ');
+    out.push('<path d="'+pline+'" fill="none" stroke="#2563eb" stroke-opacity=".8" stroke-width="2" stroke-dasharray="4 3" stroke-linecap="round" stroke-linejoin="round"/>');
+    proj.pts.forEach(function(p){
+      if(p.step>0) out.push('<circle cx="'+X(p).toFixed(1)+'" cy="'+Y(p.v).toFixed(1)+'" r="3.2" fill="#fff" stroke="#2563eb" stroke-width="1.4"/>');
+    });
+    if(proj.end){
+      out.push('<text x="'+(W-padR).toFixed(1)+'" y="'+(Y(0)-5).toFixed(1)+'" text-anchor="end" font-size="8" font-weight="700" fill="#2563eb" fill-opacity=".8">입주 대환</text>');
+    }
+  }
+
   out.push('<text x="'+(padL-6)+'" y="'+(Y(mx)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mx)+'</text>');
   out.push('<text x="'+(padL-6)+'" y="'+(Y(mn)+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(mn)+'</text>');
-  out.push('<text x="'+padL+'" y="'+(H-6)+'" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(pts[0].x)+'</text>');
-  out.push('<text x="'+(W-padR)+'" y="'+(H-6)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(pts[pts.length-1].x)+'</text>');
+  out.push('<text x="'+padL+'" y="'+(H-6)+'" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(all[0].x)+'</text>');
+  out.push('<text x="'+(W-padR)+'" y="'+(H-6)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+mdLabel(all[all.length-1].x)+'</text>');
   return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="대출 잔액 추이">'+out.join('')+'</svg>';
+}
+
+/* ----------------------------------------------------------- 시소 (v4.7)
+ * 월 저축 × 남은 개월 + 주식 자산 = '부족 0원' 필요합계(required)
+ *   required = 남은 필요 − 전세금 − 신규·승계 주담대 − 개인 추가 대출(입주용)
+ * 선 위(주식이 더 많음) = 여유, 선 아래 = 부족. 현재 슬라이더 값에 점을 찍고,
+ * 원클릭 버튼으로 월 저축 또는 주식 자산을 균형값으로 바로 옮긴다(슬라이더 잠금과 상관없이 반영).
+ */
+function seesawModel(c){
+  c=c||calc();
+  var required=Math.max(0, c.remaining-c.deposit-c.newLoan-c.extraLoan-c.personalHouse);
+  var months=c.months, monthly=c.monthly, stock=c.stockValue+c.stockProfit;
+  var future=Math.round(monthly*months/1e4)*1e4;      /* calc()와 같은 만원 단위 정리값 */
+  var gap=future+stock-required;                       /* == c.gap 과 같은 값 */
+  var needMonthly=months>0?Math.max(0,(required-stock)/months):0;
+  var needMonthlyRounded=needMonthly>0?Math.ceil(needMonthly/100000)*100000:0;  /* 슬라이더 한 칸(10만원)에 맞춰 올림 */
+  var needStock=Math.max(0,required-future);
+  return {required:required, months:months, monthly:monthly, stock:stock, future:future, gap:gap,
+    needMonthly:needMonthly, needMonthlyRounded:needMonthlyRounded, needStock:needStock,
+    hasMonths:months>0, ok:gap>=-0.5, hasTarget:!!c.hasTarget};
+}
+function seesawChart(m){
+  var xMax=Math.max(10000000, Math.ceil(Math.max(m.needMonthlyRounded, m.monthly)*1.5/1e6)*1e6);
+  var yMax=Math.max(50000000, Math.ceil(Math.max(m.required, m.stock)*1.15/1e8)*1e8);
+  var W=360,H=218,padL=42,padR=12,padT=18,padB=30;
+  var plotW=W-padL-padR, plotH=H-padT-padB;
+  function sx(x){ return padL+(clamp(x,0,xMax)/xMax)*plotW; }
+  function sy(y){ return padT+plotH-(clamp(y,0,yMax)/yMax)*plotH; }
+  var out=[];
+
+  /* 눈금·안내선 */
+  [0,.5,1].forEach(function(r){
+    var y=sy(yMax*r);
+    out.push('<line x1="'+padL+'" y1="'+y.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+y.toFixed(1)+'" stroke="currentColor" stroke-opacity="'+(r?'.10':'.18')+'"/>');
+    out.push('<text x="'+(padL-5)+'" y="'+(y+3).toFixed(1)+'" text-anchor="end" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(yMax*r)+'</text>');
+  });
+  [0,.5,1].forEach(function(r){
+    var x=sx(xMax*r);
+    out.push('<text x="'+x.toFixed(1)+'" y="'+(H-9)+'" text-anchor="'+(r===0?'start':(r===1?'end':'middle'))+'" font-size="8" fill="currentColor" fill-opacity=".55">'+fmtAxis(xMax*r)+'</text>');
+  });
+
+  /* 여유(선 위) / 부족(선 아래) 영역 */
+  function clipPoly(poly, inside, inter){
+    var res=[];
+    for(var i=0;i<poly.length;i++){
+      var a=poly[i], b=poly[(i+1)%poly.length], ia=inside(a), ib=inside(b);
+      if(ia) res.push(a);
+      if(ia!==ib) res.push(inter(a,b));
+    }
+    return res;
+  }
+  var rect=[[0,0],[xMax,0],[xMax,yMax],[0,yMax]];
+  var fOf=function(p){ return p[1]-m.required+m.months*p[0]; };
+  var crossPt=function(a,b){ var fa=fOf(a), fb=fOf(b), t=fa/((fa-fb)||1e-9); return [a[0]+(b[0]-a[0])*t, a[1]+(b[1]-a[1])*t]; };
+  var above=clipPoly(rect,function(p){return fOf(p)>=0;},crossPt);
+  var below=clipPoly(rect,function(p){return fOf(p)<=0;},crossPt);
+  function ptsStr(ps){ return ps.map(function(p){ return sx(p[0]).toFixed(1)+','+sy(p[1]).toFixed(1); }).join(' '); }
+  if(above.length>2) out.push('<polygon points="'+ptsStr(above)+'" fill="#0f9d58" fill-opacity=".10"/>');
+  if(below.length>2) out.push('<polygon points="'+ptsStr(below)+'" fill="#dc2626" fill-opacity=".09"/>');
+
+  /* 균형선(부족 0원 경계) */
+  var y1=m.required, y2=m.required-m.months*xMax, dy=y2-y1, tA=0, tB=1;
+  if(Math.abs(dy)>1e-9){
+    var ta=(yMax-y1)/dy, tb=(0-y1)/dy, lo=Math.min(ta,tb), hi=Math.max(ta,tb);
+    tA=Math.max(tA,lo); tB=Math.min(tB,hi);
+  }else if(y1<0||y1>yMax){ tA=1; tB=0; }
+  if(tB>tA){
+    var lx1=tA*xMax, ly1=y1+dy*tA, lx2=tB*xMax, ly2=y1+dy*tB;
+    out.push('<line x1="'+sx(lx1).toFixed(1)+'" y1="'+sy(ly1).toFixed(1)+'" x2="'+sx(lx2).toFixed(1)+'" y2="'+sy(ly2).toFixed(1)+'" stroke="#1d4ed8" stroke-width="2.1" stroke-dasharray="6 3" stroke-linecap="round"/>');
+  }
+  /* 영역 글자 */
+  var ax=xMax*0.12, ay=m.required-m.months*ax+yMax*0.09;
+  if(ay>yMax*0.55 && ay<=yMax) out.push('<text x="'+sx(ax).toFixed(1)+'" y="'+sy(ay).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="#0f9d58" fill-opacity=".6">여유</text>');
+  var bx=xMax*0.86, by=m.required-m.months*bx-yMax*0.09;
+  if(by>=0 && by<yMax*0.45) out.push('<text x="'+sx(bx).toFixed(1)+'" y="'+sy(by).toFixed(1)+'" text-anchor="middle" font-size="8.5" font-weight="700" fill="#dc2626" fill-opacity=".55">부족</text>');
+
+  /* 균형점 2개(월 저축만 올릴 때 / 주식만 올릴 때) */
+  if(m.needMonthlyRounded<=xMax) out.push('<circle cx="'+sx(m.needMonthlyRounded).toFixed(1)+'" cy="'+sy(m.stock).toFixed(1)+'" r="3.4" fill="none" stroke="#0f9d58" stroke-width="1.4" stroke-dasharray="2 2"/>');
+  if(m.needStock<=yMax) out.push('<circle cx="'+sx(m.monthly).toFixed(1)+'" cy="'+sy(m.needStock).toFixed(1)+'" r="3.4" fill="none" stroke="#0f9d58" stroke-width="1.4" stroke-dasharray="2 2"/>');
+
+  /* 현재 위치 점 + 십자 점선 */
+  var px=sx(m.monthly), py=sy(m.stock);
+  out.push('<line x1="'+px.toFixed(1)+'" y1="'+padT+'" x2="'+px.toFixed(1)+'" y2="'+(padT+plotH)+'" stroke="currentColor" stroke-opacity=".26" stroke-dasharray="2 3"/>');
+  out.push('<line x1="'+padL+'" y1="'+py.toFixed(1)+'" x2="'+(W-padR)+'" y2="'+py.toFixed(1)+'" stroke="currentColor" stroke-opacity=".26" stroke-dasharray="2 3"/>');
+  out.push('<circle cx="'+px.toFixed(1)+'" cy="'+py.toFixed(1)+'" r="5.2" fill="#1d4ed8" stroke="#fff" stroke-width="2"/>');
+  return '<svg viewBox="0 0 '+W+' '+H+'" role="img" aria-label="월 저축과 주식 자산의 부족 0원 경계">'+out.join('')+'</svg>';
+}
+function renderSeesaw(c){
+  var el=$('#seesawChart'); if(!el) return;
+  var note=$('#seesawNote'), bm=$('#btnBalanceMonthly'), bs=$('#btnBalanceStock'), foot=$('#seesawFoot');
+  var m=seesawModel(c);
+  function idle(msg,footMsg){
+    el.innerHTML='<div class="empty">'+msg+'</div>';
+    note.className='seesaw-note idle'; note.innerHTML='<span class="t1">아직 시소를 그릴 수 없습니다.</span>';
+    if(bm) bm.disabled=true; if(bs) bs.disabled=true;
+    if(foot) foot.textContent=footMsg||'가로 = 월 저축 · 세로 = 주식 자산';
+  }
+  if(!m.hasTarget){ idle('목표 금액과 입주일을 넣으면 시소가 그려집니다.','설정에서 목표 금액·입주일을 넣으세요.'); return; }
+  if(!m.hasMonths){ idle('입주 목표일을 넣으면 남은 개월이 정해져 시소가 그려집니다.','설정에서 입주 목표일을 넣으세요.'); return; }
+  if(bm) bm.disabled=false;
+  if(bs) bs.disabled=false;
+  el.innerHTML=seesawChart(m);
+  if(foot) foot.textContent='가로 = 월 저축 · 세로 = 주식 자산 · 선 위는 여유, 선 아래는 부족입니다.';
+  if(m.required<=0){
+    note.className='seesaw-note ok';
+    note.innerHTML='<span class="t1">전세금·주담대·개인 추가 대출만으로 이미 충분합니다.</span><span class="t2">이 경우 월 저축·주식 자산 없이도 부족분은 0원입니다.</span>';
+    return;
+  }
+  var t1 = m.ok ? ('현재 위치: 여유 '+fmtShort(Math.abs(m.gap))) : ('현재 위치: 부족 '+fmtShort(-m.gap));
+  var t2 = m.ok ? ('월 '+fmtShort(m.monthly)+' · 주식 자산 '+fmtShort(m.stock)+' 조합으로 이미 부족분 0원을 넘겼습니다.')
+                : ('월 저축을 '+fmtShort(m.needMonthlyRounded)+'으로 올리거나 / 주식을 '+fmtShort(m.needStock)+'으로 올리면 딱 맞음');
+  note.className='seesaw-note '+(m.ok?'ok':'bad');
+  note.innerHTML='<span class="t1">'+esc(t1)+'</span><span class="t2">'+esc(t2)+'</span>';
+}
+function seesawSetMonthly(){
+  var c=calc(), m=seesawModel(c);
+  if(!m.hasTarget){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
+  if(!m.hasMonths){ toast('설정에서 입주 목표일을 넣어 주세요'); return; }
+  var target=m.needMonthlyRounded;
+  state.settings.monthlyInvestSim=target;
+  commitSummary();
+  toast(target<=0 ? '주식 자산만으로 이미 충분합니다 — 월 저축 0원'
+    : ('월 저축을 '+fmtShort(target)+'으로 맞췄습니다 · 주식 자산 '+fmtShort(m.stock)+' 고정'));
+}
+function seesawSetStock(){
+  var c=calc(), m=seesawModel(c);
+  if(!m.hasTarget){ toast('목표 금액과 입주일을 먼저 입력하세요'); return; }
+  if(!m.hasMonths){ toast('설정에서 입주 목표일을 넣어 주세요'); return; }
+  var target=Math.max(0,Math.round(m.needStock));
+  setStockAssetTotal(target);
+  commitSummary();
+  toast('주식 자산을 '+fmtShort(target)+'으로 맞췄습니다 · 월 저축 '+fmtShort(m.monthly)+' 고정');
 }
 
 /* ----------------------------------------------------------- 렌더: 요약 */
@@ -1266,7 +1521,10 @@ function renderSummary(){
   var maxLoan=Math.max(500000000, Math.ceil(c.goal*0.8/100000000)*100000000);
   var sm=$('#simMonthly'), sp=$('#simProfit'), sl=$('#simLoan');
   var stockNow=stockValueNow(), stockTotal=stockNow+simProfit();
-  var stockMin=Math.min(stockNow,400000000), stockMax=Math.max(400000000,Math.ceil((stockNow+200000000)/1e8)*1e8);
+  /* v4.7: 시소 원클릭으로 주식 자산을 키울 수 있으니 그 목표까지 슬라이더 범위를 넓혀 둔다 */
+  var seesawNeedStock=Math.max(0,seesawModel(c).needStock);
+  var stockMin=Math.min(stockNow,400000000), stockMax=Math.max(400000000,
+    Math.ceil(Math.max(stockNow+200000000, seesawNeedStock*1.1, stockTotal*1.1)/1e8)*1e8);
   sm.max=String(maxMonthly); $('#simMonthlyMax').textContent=fmtShort(maxMonthly);
   sl.max=String(maxLoan); $('#simLoanMax').textContent=fmtShort(maxLoan);
   sp.min=String(stockMin); sp.max=String(stockMax);
@@ -1295,6 +1553,7 @@ function renderSummary(){
   gp.textContent=c.hasTarget?((c.gap>=0?'여유 ':'부족 ')+fmtWon(Math.abs(c.gap))):'';
   gp.className=(c.gap>=0?'pos':'neg');
 
+  renderSeesaw(c);
   renderSchedule();
 }
 
@@ -1427,18 +1686,15 @@ function renderPhaseCash(){
   if(!p.preItems.length){
     h.push('<div class="pc-foot">'+(p.hasSchedule?'입주 전에 현금으로 낼 일정이 없습니다.':'납입 일정을 넣으면 시기별로 나눠 보여줍니다.')+'</div>');
   }else{
+    /* v4.7: 월급은 매달 대출 상환에 쓰이므로 '그때까지 모이는 돈'·여유/부족 배지를 빼고,
+       그 시점에 실제로 낼 현금만 깔끔하게 보여 준다. */
     p.preItems.forEach(function(r){
       var x=r.item, many=p.preItems.length>1;
-      if(many){
-        h.push('<div class="pc-line"><span class="k">'+esc((x.dueDate||'날짜 미정')+' · '+(x.label||'일정'))+'</span><span class="v">'+fmtWon(num(x.amount))+'</span></div>');
-        h.push('<div class="pc-sub">그때까지 월급 '+fmtWon(r.salary)+' + '+stockLabel+' = '+fmtWon(r.avail)+'</div>');
-      }else{
-        h.push('<div class="pc-line"><span class="k">낼 돈 (자납)</span><span class="v">'+fmtWon(num(x.amount))+'</span></div>');
-        h.push('<div class="pc-line"><span class="k">그때까지 모이는 돈</span><span class="v">'+fmtWon(r.avail)+'</span></div>');
-        h.push('<div class="pc-sub">월급 '+fmtWon(r.salary)+' + '+stockLabel+'</div>');
-      }
-      h.push('<div class="pc-tag '+(r.gap>=0?'ok':'bad')+'">'+(r.gap>=0?('여유 '+fmtWon(r.gap)):('부족 '+fmtWon(-r.gap)))+'</div>');
+      h.push('<div class="pc-line"><span class="k">'+(many?esc((x.dueDate||'날짜 미정')+' · '+(x.label||'일정')):'낼 돈 (현금 자납)')+'</span><span class="v">'+fmtWon(num(x.amount))+'</span></div>');
     });
+    if(p.preItems.length>1){
+      h.push('<div class="pc-line"><span class="k">입주 전 합계</span><span class="v">'+fmtWon(p.preTotal)+'</span></div>');
+    }
   }
   h.push('</div>');
 
@@ -1483,36 +1739,61 @@ function personalLoanTotal(){
 }
 /* 주택 관련 = 기존 중도금·주택대출 잔액 + 입주 시 신규·승계 주담대 (파랑)
    별도 개인 = 개인대출 목록 + 시뮬레이터 추가 대출 (주황)
-   ※ 개인대출 목록은 표시 전용 — 부족분 계산에는 넣지 않는다. */
-function debtSummary(c){
-  c=c||calc();
-  var items=[], house=0, personal=0, interest=0, rateCount=0;
-  if(c.loanOut>0) items.push({name:'중도금·주택대출 잔액', group:'house', balance:c.loanOut, rate:null, note:'대출상환 탭 최근 잔액', derived:true});
-  if(c.newLoan>0) items.push({name:'입주 시 신규·승계 주담대', group:'house', balance:c.newLoan, rate:null, note:'설정·시뮬레이터', derived:true});
-  state.extraLoans.forEach(function(l){
-    items.push({name:l.name||'개인대출', group:'personal', balance:num(l.balance),
-      rate:(l.rate==null?null:num(l.rate)), note:l.memo||'', id:l.id, forHouse:l.forHouse===true});
-  });
-  var extra=num(state.settings.additionalLoanSim);
-  if(extra>0) items.push({name:'개인 추가 대출 (입주용 · 시뮬)', group:'personal', balance:extra, rate:null, note:'시뮬레이터에서 조절', sim:true});
-  var hi=0, pi=0;
+   v4.7: 두 시점으로 나눈다 — 중도금 잔액과 입주 시 주담대를 한 합계로 더하면 '같은 빚을 두 번 세는' 것처럼 보인다.
+     · now    = 지금(오늘) 실제 대출 — 중도금·주택대출 잔액 + 등록된 개인대출 전체
+     · future = 입주 시 대환 후 예상 — 신규·승계 주담대 + 개인 추가 대출(입주용: 목록+시뮬) + 주택 무관 별도 개인대출(유지)
+   ※ 부족분 계산(calc)은 그대로다. 이 함수는 보여 주기 전용. */
+function debtPack(items){
+  var hi=0, pi=0, house=0, personal=0, interest=0;
   items.forEach(function(it){
     if(it.group==='house'){ house+=it.balance; it.color=HOUSE_COLORS[Math.min(hi++,HOUSE_COLORS.length-1)]; }
     else { personal+=it.balance; it.color=PERSONAL_COLORS[Math.min(pi++,PERSONAL_COLORS.length-1)]; }
-    if(it.rate!=null && it.rate>0){ interest+=it.balance*it.rate/100; rateCount++; }
+    if(it.rate!=null && it.rate>0) interest+=it.balance*it.rate/100;
   });
   var total=house+personal;
   items.forEach(function(it){ it.pct=total>0?(it.balance/total*100):0; });
-  /* v4.4: 목록 개인대출을 입주 포함 / 별도로 나눠 합계를 낸다(시뮬 추가 대출은 따로) */
-  var personalHouse=0, personalSeparate=0, personalHouseCount=0;
-  items.forEach(function(it){
-    if(it.group!=='personal' || it.sim) return;
-    if(it.forHouse){ personalHouse+=it.balance; personalHouseCount++; }
-    else personalSeparate+=it.balance;
+  return {items:items, house:house, personal:personal, total:total, interest:interest};
+}
+function upcomingLoanSum(){
+  var t=0, today0=today();
+  state.schedule.forEach(function(x){
+    if(x.status==='완료') return;
+    if(fundOf(x)!=='대출') return;
+    var d=parseDate(x.dueDate); if(!d||d<today0) return;
+    t+=num(x.amount);
   });
-  return {items:items, house:house, personal:personal, total:total, interest:interest, rateCount:rateCount,
+  return t;
+}
+function debtSummary(c){
+  c=c||calc();
+  var nowItems=[], futHouse=[], futPersonal=[], futSeparate=[];
+  if(c.loanOut>0) nowItems.push({name:'중도금·주택대출 잔액', group:'house', balance:c.loanOut, rate:null,
+    note:'대출상환 탭 최근 잔액', when:'now', derived:true});
+  var personalHouse=0, personalSeparate=0, personalHouseCount=0, extra=num(state.settings.additionalLoanSim);
+  state.extraLoans.forEach(function(l){
+    var bal=num(l.balance), rate=(l.rate==null?null:num(l.rate));
+    nowItems.push({name:l.name||'개인대출', group:'personal', balance:bal, rate:rate, note:l.memo||'',
+      id:l.id, forHouse:l.forHouse===true, when:'now'});
+    if(l.forHouse===true){ personalHouse+=bal; personalHouseCount++; }
+    else {
+      personalSeparate+=bal;
+      futSeparate.push({name:l.name||'개인대출', group:'personal', balance:bal, rate:rate,
+        note:'주택 무관 · 지금 그대로 유지', when:'future', separate:true});
+    }
+  });
+  var credit=personalHouse+extra;
+  if(c.newLoan>0) futHouse.push({name:'신규·승계 주담대 (대환)', group:'house', balance:c.newLoan, rate:null,
+    note:'입주 시 중도금 대환·잔금', when:'future', derived:true});
+  if(credit>0) futPersonal.push({name:'개인 추가 대출 (입주용)', group:'personal', balance:credit, rate:null,
+    note:(personalHouse>0&&extra>0)?('목록 입주용 '+fmtShort(personalHouse)+' + 시뮬레이터 '+fmtShort(extra))
+        :(personalHouse>0?'대출현황에서 입주용으로 체크한 개인대출':'시뮬레이터에서 조절한 금액'),
+    when:'future', forHouse:true});
+  var now=debtPack(nowItems), future=debtPack(futHouse.concat(futPersonal,futSeparate));
+  return {now:now, future:future,
+    items:now.items, house:now.house, personal:now.personal, total:now.total, interest:now.interest,
     extra:extra, listTotal:personalLoanTotal(), listCount:state.extraLoans.length,
-    personalHouse:personalHouse, personalSeparate:personalSeparate, personalHouseCount:personalHouseCount};
+    personalHouse:personalHouse, personalSeparate:personalSeparate, personalHouseCount:personalHouseCount,
+    upcomingLoan:upcomingLoanSum()};
 }
 function debtSegHtml(d){
   if(d.total<=0) return '<i style="width:100%;background:var(--line)"></i>';
@@ -1529,15 +1810,21 @@ function debtLegendHtml(d){
   }).join('');
 }
 function renderLoanStatusMini(c){
-  var d=debtSummary(c||calc());
-  $('#debtTotalMini').textContent=fmtWon(d.total);
-  $('#debtMiniBar').innerHTML=debtSegHtml(d);
+  var d=debtSummary(c||calc()), n=d.now, f=d.future;
+  $('#debtTotalMini').textContent=fmtWon(n.total);
+  $('#debtMiniBar').innerHTML=debtSegHtml(n);
   $('#debtMiniSplit').innerHTML=
-    '<span><i class="dot house-c"></i>주택 관련 <b>'+fmtWon(d.house)+'</b></span>'+
-    '<span><i class="dot personal-c"></i>개인 <b>'+fmtWon(d.personal)+'</b></span>';
-  $('#debtMiniNote').innerHTML = d.total>0
-    ? ('<b>개인 추가 대출 '+fmtWon(d.personalHouse+d.extra)+'</b>은(는) 확보 재원으로 부족분을 줄입니다.'+
-       (d.personalSeparate>0?(' 별도 개인대출 '+fmtWon(d.personalSeparate)+'은(는) 표시만 합니다.'):''))
+    '<span><i class="dot house-c"></i>중도금·주택 <b>'+fmtWon(n.house)+'</b></span>'+
+    '<span><i class="dot personal-c"></i>개인 <b>'+fmtWon(n.personal)+'</b></span>';
+  var fu=$('#debtMiniFuture');
+  var mi=parseDate(state.settings.moveInDate);
+  var miLabel=mi?(mi.getFullYear()+'-'+String(mi.getMonth()+1).padStart(2,'0')):'입주 시';
+  if(fu) fu.innerHTML = f.total>0
+    ? ('<span>입주 시 대환 후 예상 ('+esc(miLabel)+')</span><b>'+fmtWon(f.total)+'</b>')
+    : '';
+  $('#debtMiniNote').innerHTML = n.total>0
+    ? ('입주 때 기존 중도금은 <b>주담대·전세·현금으로 대환</b>해 사라지므로, 지금 잔액과 주담대를 <b>한 합계로 더하지 않습니다</b>.'+
+       (d.personalSeparate>0?(' 주택 무관 별도 개인대출 '+fmtWon(d.personalSeparate)+'은(는) 그대로 유지됩니다.'):''))
     : '대출상환·설정에 잔액을 넣거나 <b>대출현황</b>에서 개인대출을 추가하세요.';
 }
 function debtRowHtml(it, opts){
@@ -1549,8 +1836,11 @@ function debtRowHtml(it, opts){
   var tag=(it.group==='personal' && !it.sim)
     ? '<span class="bq pl-tag '+(it.forHouse?'include':'separate')+'">'+(it.forHouse?'입주용':'별도')+'</span>'
     : '';
+  var when=(opts.showWhen && it.when)
+    ? '<span class="debt-when '+(it.when==='future'?'future':'now')+'">'+(it.when==='future'?'입주 시':'지금')+'</span>'
+    : '';
   return '<div class="row"><div class="main">'+
-    '<div class="t1">'+esc(it.name)+'</div>'+
+    '<div class="t1">'+when+esc(it.name)+'</div>'+
     '<div class="t2">'+esc(meta.join(' · '))+'</div>'+bar+'</div>'+tag+
     '<div class="amt">'+fmtShort(it.balance)+'</div>'+
     (opts.editable?('<button class="del" data-pl-edit="'+it.id+'" aria-label="수정" title="수정">✎</button>'+
@@ -1558,24 +1848,44 @@ function debtRowHtml(it, opts){
     '</div>';
 }
 function renderDebt(c){
-  var d=debtSummary(c||calc());
-  $('#debtTotal').textContent=fmtWon(d.total);
-  $('#debtTotalHint').textContent=d.items.length?(d.items.length+'건 · 항목별 잔액'):'입력 없음';
-  $('#debtBar').innerHTML=debtSegHtml(d);
-  $('#debtLegend').innerHTML=debtLegendHtml(d);
+  c=c||calc();
+  var d=debtSummary(c), n=d.now, f=d.future;
+
+  /* ① 지금(오늘) 실제 대출 */
+  $('#debtNowTotal').textContent=fmtWon(n.total);
+  $('#debtNowHint').textContent=n.items.length?(n.items.length+'건 · 오늘 갚고 있는 잔액'):'입력 없음';
+  $('#debtNowBar').innerHTML=debtSegHtml(n);
+  $('#debtNowLegend').innerHTML=debtLegendHtml(n);
+
+  /* ② 입주 시 대환 후 예상 대출 */
+  $('#debtFutureTotal').textContent=fmtWon(f.total);
+  var mi2=parseDate(state.settings.moveInDate);
+  var fWhen=$('#debtFutureWhen');
+  if(fWhen) fWhen.textContent=mi2?(mi2.getFullYear()+'-'+String(mi2.getMonth()+1).padStart(2,'0')):'입주 시';
+  $('#debtFutureHint').textContent=c.hasTarget&&state.settings.moveInDate?('입주 '+mdLabel(state.settings.moveInDate)+' 기준'):'입주일 미설정';
+  $('#debtFutureBar').innerHTML=debtSegHtml(f);
+  $('#debtFutureLegend').innerHTML=f.total>0?debtLegendHtml(f)
+    :'<div class="note">신규·승계 주담대나 입주용 개인대출을 넣으면 여기에 나옵니다.</div>';
+  var fnote=[];
+  if(c.loanOut>0) fnote.push('기존 중도금 대출 <b>'+fmtWon(c.loanOut)+'</b>은(는) 입주 때 주담대·전세·현금으로 <b>상환(대환) 완료</b>되어 이 예상에 넣지 않았습니다.');
+  if(d.upcomingLoan>0) fnote.push('입주 전 중도금 대출 실행 예정 <b>'+fmtWon(d.upcomingLoan)+'</b>은 지금 잔액에 쌓였다가 함께 대환됩니다(대출상환 탭 예상 점선).');
+  if(d.personalSeparate>0) fnote.push('주택 무관 별도 개인대출 <b>'+fmtWon(d.personalSeparate)+'</b>은(는) 입주 후에도 그대로 남습니다.');
+  $('#debtFutureNote').innerHTML=fnote.join(' ');
 
   var kpis=[
-    {k:'주택 관련 (파랑)', v:fmtWon(d.house), d:'중도금 잔액 + 신규·승계 주담대'},
-    {k:'개인 (주황)', v:fmtWon(d.personal), d:'목록 '+d.listCount+'건 '+fmtShort(d.listTotal)+(d.extra>0?(' + 시뮬 '+fmtShort(d.extra)):'')},
-    {k:'총 대출', v:fmtWon(d.total), d:'주택 '+Math.round(d.total?d.house/d.total*100:0)+'% · 개인 '+Math.round(d.total?d.personal/d.total*100:0)+'%'},
-    {k:'이자 부담 (연)', v:d.interest>0?fmtWon(d.interest):'—', d:d.interest>0?('월 약 '+fmtWon(d.interest/12)):'개인대출 금리를 넣으면 계산'}
+    {k:'지금 대출 (오늘)', v:fmtWon(n.total), d:'중도금 + 개인대출 잔액'},
+    {k:'입주 시 예상 (대환 후)', v:fmtWon(f.total), d:'주담대 + 개인 추가 대출'},
+    {k:'입주 전 실행 예정', v:d.upcomingLoan>0?fmtWon(d.upcomingLoan):'—',
+      d:d.upcomingLoan>0?'남은 중도금 대출 실행분':'미완료 대출 일정 없음'},
+    {k:'이자 부담 (연)', v:n.interest>0?fmtWon(n.interest):'—', d:n.interest>0?('월 약 '+fmtWon(n.interest/12)):'개인대출 금리 기준'}
   ];
   $('#debtKpis').innerHTML=kpis.map(function(k){
     return '<div class="kpi"><div class="k">'+k.k+'</div><div class="v" title="'+esc(k.v)+'">'+esc(k.v)+'</div><div class="d">'+esc(k.d)+'</div></div>';
   }).join('');
 
-  var houseItems=d.items.filter(function(i){return i.group==='house' && i.balance>0;});
-  $('#debtHouseList').innerHTML=houseItems.length?houseItems.map(function(it){ return debtRowHtml(it); }).join('')
+  var houseItems=n.items.filter(function(i){return i.group==='house' && i.balance>0;})
+    .concat(f.items.filter(function(i){return i.group==='house' && i.balance>0;}));
+  $('#debtHouseList').innerHTML=houseItems.length?houseItems.map(function(it){ return debtRowHtml(it,{showWhen:true}); }).join('')
     :'<div class="empty">대출상환 탭의 잔액이나 설정의 신규·승계 주담대를 넣으면 여기에 나옵니다.</div>';
 
   var sp=$('#debtPersonalSplit');
@@ -1621,7 +1931,33 @@ function renderLoans(){
     return '<div class="kpi"><div class="k">'+k.k+'</div><div class="v" title="'+esc(k.v)+'">'+esc(k.v)+'</div><div class="d">'+esc(k.d)+'</div></div>';
   }).join('');
   $('#loanChart').innerHTML=loanChart();
-  $('#loanChartHint').textContent=ls.length?('최근 잔액 '+fmtShort(bal)):'';
+  var proj=loanProjOn?loanProjection(loanActualPoints()):null;
+  var ppts=(proj&&proj.pts)||[];
+  var beforeEnd=ppts.length?(ppts[ppts.length-1].repay&&ppts.length>1?ppts[ppts.length-2]:ppts[ppts.length-1]):null;
+  var execCount=(ppts.filter(function(p){return p.step>0;})).length;
+  var hintTxt='';
+  if(ls.length){
+    hintTxt='최근 잔액 '+fmtShort(bal);
+    if(loanProjOn){
+      hintTxt += (beforeEnd&&proj.end)?(' · '+mdLabel(proj.end.x)+' 직전 예상 '+fmtShort(beforeEnd.v)+' → 대환 0원'):' · 예상 추이 표시 중';
+      if(execCount) hintTxt += ' · 중도금 대출 '+execCount+'회 반영';
+    }else{
+      hintTxt += ' · 실선(지금까지 기록)만 보는 중';
+    }
+  }
+  $('#loanChartHint').textContent=hintTxt;
+  var lgl=$('#loanChartLegend');
+  if(lgl) lgl.innerHTML = ls.length ? (
+    '<span><i style="background:#2563eb"></i>실선 = 지금까지 기록</span>'+
+    (loanProjOn?('<span><i style="background:#2563eb;opacity:.5"></i>점선 = 예상 (월 '+fmtShort(simMonthly())+' 상환'+(execCount?(' · 중도금 '+execCount+'회'):'')+')</span>'):'')
+  ) : '';
+  var bp=$('#btnLoanProj');
+  if(bp){
+    bp.textContent=loanProjOn?'실선+점선':'실선만';
+    bp.classList.toggle('on',loanProjOn);
+    bp.setAttribute('aria-pressed',loanProjOn?'true':'false');
+    bp.title=loanProjOn?'지금 누르면 예상 점선을 감춥니다':'지금 누르면 예상 점선을 보여 줍니다';
+  }
 
   var el=$('#loanList');
   if(!ls.length){ el.innerHTML='<div class="empty">상환 내역이 없습니다. 아래 <b>+ 추가</b>로 첫 건을 넣어 보세요.</div>'; return; }
@@ -1633,6 +1969,14 @@ function renderLoans(){
       '<button class="del" data-del="loans" data-id="'+l.id+'" aria-label="삭제">✕</button></div>';
   }).join('');
 }
+
+/* v4.7: 실선+예상 점선 / 실선만 전환 */
+$('#btnLoanProj').addEventListener('click',function(){
+  loanProjOn=!loanProjOn;
+  try{ localStorage.setItem(LS_LOANPROJ, loanProjOn?'1':'0'); }catch(e){}
+  renderLoans();
+  toast(loanProjOn?'예상 추이(점선)를 켰습니다 — 요약 시뮬의 월 투입과 연동됩니다':'실선(지금까지 기록)만 보고 있습니다');
+});
 
 /* ----------------------------------------------------------- 렌더: 주식 */
 /* v4.6: 주식 평가금 + 목표 수익 → '주식 자산' 한 값으로.
@@ -1705,6 +2049,7 @@ function showTab(tab){
   $$('.tabbar .tab').forEach(function(b){ b.classList.toggle('active', b.getAttribute('data-tab')===tab); });
   TAB_KEYS.forEach(function(k){ $('#view-'+k).classList.toggle('hidden',k!==tab); });
   if(tab==='debt') renderDebt();
+  if(tab==='loans') renderLoans();   /* v4.7: 요약 시뮬의 월 투입을 바꾼 뒤 예상 점선이 바로 반영되게 */
   window.scrollTo({top:0,behavior:'instant'});
 }
 $$('.tabbar .tab').forEach(function(btn){
@@ -1743,6 +2088,9 @@ $('#btnSimReset').addEventListener('click',function(){
   simTempOpen={}; applySimLock();
   commitSummary(); toast('시뮬레이터를 초기값으로 되돌렸습니다');
 });
+/* v4.7: 시소 원클릭 균형 — 슬라이더 잠금과 상관없이 바로 반영하고 저장한다 */
+$('#btnBalanceMonthly').addEventListener('click',seesawSetMonthly);
+$('#btnBalanceStock').addEventListener('click',seesawSetStock);
 
 /* ----------------------------------------------------------- 시뮬레이터 잠금 -----------------------------------------------------------
  * 스크롤하다 스쳐서 값이 바뀌는 것을 막는다. 기본은 잠김.
@@ -2704,6 +3052,8 @@ window.__wp={
   debt:function(){ return debtSummary(); },
   phaseCash:function(){ return phaseCashPlan(); },
   stockAsset:function(){ return stockAssetTotal(); },
+  seesaw:function(){ return seesawModel(calc()); },
+  loanProj:function(){ var a=loanActualPoints(); return {on:loanProjOn, actual:a, proj:loanProjection(a)}; },
   showTab:function(t){ showTab(t); },
   isBlank:function(){ return isBlank(state); },
   classifyUrl:classifyUrl,
