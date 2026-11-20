@@ -1580,11 +1580,13 @@ function renderDebt(c){
 
   var sp=$('#debtPersonalSplit');
   if(sp){
-    var inc=d.personalHouse+d.extra;
-    sp.innerHTML=
-      '<div class="ps include"><span>🏠 입주용 <b>(계산 포함)</b></span><b>'+fmtWon(inc)+'</b></div>'+
-      '<div class="ps-sub">목록 입주용 '+fmtWon(d.personalHouse)+' + 시뮬레이터 '+fmtWon(d.extra)+'</div>'+
-      '<div class="ps separate"><span>주택 무관 별도 <b>(계산 제외)</b></span><b>'+fmtWon(d.personalSeparate)+'</b></div>';
+    if(d.personal>0){
+      var inc=d.personalHouse+d.extra;
+      sp.innerHTML=
+        '<div class="ps include"><span>🏠 입주용 <b>(계산 포함)</b></span><b>'+fmtWon(inc)+'</b></div>'+
+        '<div class="ps-sub">목록 입주용 '+fmtWon(d.personalHouse)+' + 시뮬레이터 '+fmtWon(d.extra)+'</div>'+
+        '<div class="ps separate"><span>주택 무관 별도 <b>(계산 제외)</b></span><b>'+fmtWon(d.personalSeparate)+'</b></div>';
+    }else{ sp.innerHTML=''; }
   }
   var personalItems=d.items.filter(function(i){return i.group==='personal';});
   $('#debtPersonalList').innerHTML=personalItems.length?personalItems.map(function(it){
