@@ -1680,7 +1680,9 @@ function renderPhaseCash(){
   /* ---------- ① 입주 전 ---------- */
   h.push('<div class="pc-step">');
   var head1 = p.preItems.length
-    ? (esc(p.preItems[0].item.dueDate||'날짜 미정')+' · '+esc(p.preItems[0].item.label||'일정'))
+    ? (p.preItems.length>1
+        ? (p.preItems.length+'건 · 마지막 '+esc(p.preItems[p.preItems.length-1].item.dueDate||'날짜 미정'))
+        : (esc(p.preItems[0].item.dueDate||'날짜 미정')+' · '+esc(p.preItems[0].item.label||'일정')))
     : (p.moveIn?esc(state.settings.moveInDate)+' 이전':'입주일 미설정');
   h.push('<div class="pc-step-h"><span>① 입주 전</span><em>'+head1+'</em></div>');
   if(!p.preItems.length){
