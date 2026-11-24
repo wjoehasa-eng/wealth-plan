@@ -182,6 +182,17 @@
 월별 투입은 *앞으로의 속도*를 재는 값입니다. 이미 모인 돈은 전세금·주식 평가금으로 잡히므로
 이중으로 더하지 않습니다.
 
+## 토스 스타일 미리보기 (`toss/`)
+
+같은 기능·같은 계산을 **토스 앱 디자인**으로 다시 그린 화면을 `toss/` 폴더에 따로 두었습니다.
+
+- 주소: `https://<계정>.github.io/wealth-plan/toss/` (원래 화면은 `…/wealth-plan/` 그대로)
+- **계산·기능·저장 방식은 원래 앱과 100% 같습니다.** `localStorage` 키도 같아서, 같은 폰에서
+  열면 기존에 입력해 둔 값과 시트 주소가 그대로 불러와집니다. (기존 앱 데이터는 읽기/쓰기 형식이 같아
+  손상되지 않습니다. 두 화면을 오가며 비교해도 값은 하나입니다.)
+- 마음에 들면 `toss/index.html`을 루트 `index.html`로 승격하면 되고, 아니면 `toss/` 폴더만 지우면 됩니다.
+- `toss/`는 자체 `manifest.webmanifest`(앱 이름·시작 주소)와 아이콘 사본을 씁니다.
+
 ## 파일
 
 ```
@@ -191,6 +202,9 @@ sw.js                    오프라인 캐시(앱 껍데기만)
 icon-192.png
 icon-512.png
 icon-512-maskable.png
+toss/index.html          토스 스타일 리디자인(같은 계산·같은 저장)
+toss/manifest.webmanifest
+toss/icon-*.png          toss/ 화면용 아이콘 사본
 apps-script/Code.gs      구글 시트 백엔드(Apps Script)
 ```
 
@@ -198,7 +212,7 @@ apps-script/Code.gs      구글 시트 백엔드(Apps Script)
 
 1. 새 저장소를 만들고 이 폴더의 파일을 그대로 올립니다. (Settings → Pages → Branch: main / root)
 2. 폰에서 `https://<계정>.github.io/<저장소>/` 를 열고 **홈 화면에 추가**합니다.
-3. 파일을 고친 뒤에는 `sw.js`의 `CACHE` 이름(현재 `wealth-plan-v4-7-4`)의 버전을 올려야
+3. 파일을 고친 뒤에는 `sw.js`의 `CACHE` 이름(현재 `wealth-plan-v4-7-5`)의 버전을 올려야
    폰에 새 화면이 반영됩니다. 서비스 워커는 새 버전을 받으면 **즉시 활성화**되고,
    열려 있던 화면은 한 번 자동 새로고침되어 바로 새 코드로 바뀝니다.
 
