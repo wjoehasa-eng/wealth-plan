@@ -80,6 +80,60 @@
 <meta name="theme-color" content="#17171C" media="(prefers-color-scheme: dark)">
 <meta name="description" content="입주 시점 자금 부족분을 시뮬레이션하는 설치형 웹앱. 데이터는 이 기기 브라우저와 본인 구글 시트에만 저장됩니다.">
 <title>입주 자금관리</title>
+<script>
+/* ── 첫 로딩 안내: 시트에서 불러오는 동안 경과 초를 보여 준다. 이 기기에 내 데이터가 있으면 띄우지 않는다. */
+window.__LG_CFG = { keys: ["wealthplan.state.v1"], msg: '시트에서 불러오는 중…', accent: '#3182F6', bg: '#F2F4F6' };
+(function(){
+  var cfg = window.__LG_CFG;
+  function lsGet(k){ try { return localStorage.getItem(k); } catch(e){ return null; } }
+  function sheetConnected(){
+    try {
+      if (/[?&]demo=1/.test(location.search)) return false;
+      if (/[?&#]s=/.test(location.hash + location.search)) return true;
+      for (var i = 0; i < localStorage.length; i++){ var v = lsGet(localStorage.key(i)) || ''; if (v.indexOf('script.google.com/macros/s/') >= 0) return true; }
+    } catch(e){}
+    return false;
+  }
+  function hasLocalData(){
+    if (!cfg.keys || !cfg.keys.length) return false;
+    for (var i = 0; i < cfg.keys.length; i++){ var v = lsGet(cfg.keys[i]); if (v && v !== 'null' && v !== 'undefined' && v.length > 2) return true; }
+    return false;
+  }
+  var el = null, t0 = 0, iv = null, msg = cfg.msg || '시트에서 불러오는 중…', failsafe = null;
+  function label(){ var s = Math.max(0, Math.round((Date.now() - t0) / 1000)); return msg + ' (' + s + '초)'; }
+  function show(m){
+    if (m) msg = m;
+    if (el){ var n = document.getElementById('lgTxt'); if (n) n.textContent = label(); return; }
+    t0 = Date.now();
+    el = document.createElement('div'); el.id = 'loadGate'; el.setAttribute('role','status'); el.setAttribute('aria-live','polite');
+    el.style.cssText = 'position:fixed;inset:0;z-index:2147483000;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:14px;background:' + (cfg.bg || '#F2F4F6') + ';color:' + (cfg.color || '#191F28') + ';font:600 15px/1.5 -apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",system-ui,sans-serif;';
+    var st = document.createElement('style');
+    st.textContent = '@keyframes lgspin{to{transform:rotate(360deg)}}@media (prefers-color-scheme:dark){#loadGate{background:#17171C!important;color:#F2F4F6!important}}';
+    (document.head || document.documentElement).appendChild(st);
+    var sp = document.createElement('div');
+    sp.style.cssText = 'width:28px;height:28px;border-radius:50%;border:3px solid rgba(120,130,150,.25);border-top-color:' + (cfg.accent || '#3182F6') + ';animation:lgspin .8s linear infinite';
+    var tx = document.createElement('div'); tx.id = 'lgTxt'; tx.textContent = label();
+    el.appendChild(sp); el.appendChild(tx);
+    (document.body || document.documentElement).appendChild(el);
+    if (iv) clearInterval(iv);
+    iv = setInterval(function(){ var n = document.getElementById('lgTxt'); if (n) n.textContent = label(); }, 1000);
+    if (failsafe) clearTimeout(failsafe);
+    failsafe = setTimeout(done, 20000);
+  }
+  function done(){
+    window.__LG_DONE = true;
+    if (failsafe){ clearTimeout(failsafe); failsafe = null; }
+    if (iv){ clearInterval(iv); iv = null; }
+    if (el && el.parentNode) el.parentNode.removeChild(el);
+    el = null;
+  }
+  window.LoadGate = { show: show, done: done, active: function(){ return !!el; }, label: label };
+  if (cfg.auto !== false && sheetConnected() && !hasLocalData()){
+    if (document.body) show();
+    else document.addEventListener('DOMContentLoaded', function(){ if (!el && !window.__LG_DONE) show(); });
+  }
+})();
+</script>
 <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
 <link rel="manifest" href="./manifest.webmanifest">
@@ -3369,6 +3423,13 @@ function pushToSheet(opts){
     if(opts.verbose) toast('예시 데이터는 시트로 보내지 않습니다');
     return Promise.resolve({ok:false, skipped:'demo'});
   }
+  /* 데이터 증발 방지: 시트에서 한 번도 읽지 못한 상태에서는 자동 저장을 미룹니다(새 기기·첫 연결). */
+  if(!sync.lastPullAt && !opts.manual){
+    sync.dirty=true;
+    syncUI('wait','시트에서 먼저 불러오는 중…');
+    if(autoSync) scheduleAutoPush(1200);
+    return Promise.resolve({ok:false, skipped:'nopull'});
+  }
   if(sync.pushing){ sync.dirty=true; return sync.pushing; }
 
   var sentAt=new Date().toISOString();
@@ -3456,8 +3517,11 @@ function initSync(){
   else setUrlHint('',null);
   if(info.kind==='ok'){
     syncUI('wait','시트에서 최신 내용을 확인하는 중…');
-    setTimeout(function(){ pullFromSheet({reason:'open',silent:true}); },150);
+    setTimeout(function(){
+      pullFromSheet({reason:'open',silent:true}).then(function(){ if(window.LoadGate) LoadGate.done(); });
+    },150);
   }else{
+    if(window.LoadGate) LoadGate.done();
     syncUI('none', info.kind==='bad'?info.msg:'구글 시트에 연결되지 않았습니다 — ⚙ 설정에서 Apps Script 주소를 넣으세요');
   }
   clearInterval(sync.tickTimer);
