@@ -6,7 +6,7 @@
  *   - 화면(document) 응답은 '요청한 그 주소'로만 캐시합니다. 그래야 예전에 /toss/를 열어 둔
  *     기기가 오프라인일 때 엉뚱한 화면이 루트 자리에 열리지 않습니다.
  */
-const CACHE = 'wealth-plan-v4-7-8';
+const CACHE = 'wealth-plan-v4-7-9';
 const SCOPE = new URL('./', self.location).pathname;      /* 예: /wealth-plan/ */
 const SHELL = [
   './',
