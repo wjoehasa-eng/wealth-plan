@@ -1069,6 +1069,7 @@ code{font-size:11.5px;background:var(--line2);padding:2px 6px;border-radius:6px;
         <div class="full url-hint" id="urlHint"></div>
         <div class="full btn-row">
           <button class="btn primary" id="btnSheetConnect">연결하고 불러오기</button>
+          <button class="btn" id="btnSheetCopyLink">이 페이지 링크 복사</button>
         </div>
         <div class="full btn-row">
           <button class="btn" id="btnSheetLoad">시트에서 다시 불러오기</button>
@@ -3512,6 +3513,7 @@ $('#btnSheetConnect').addEventListener('click',function(){
     }
   });
 });
+$('#btnSheetCopyLink').addEventListener('click',copyPageLink);
 $('#btnSheetLoad').addEventListener('click',function(){
   var v=$('#cfScriptUrl').value;
   var info=classifyUrl(v);
@@ -3729,6 +3731,46 @@ renderAll=function(){ _renderAll.apply(null,arguments); queueRangePaint(); };
 renderSummary=function(){ _renderSummary.apply(null,arguments); queueRangePaint(); };
 
 /* ----------------------------------------------------------- 시작 */
+/* #s= 자동 연결 — 공용 PC에서도 주소 한 줄로 시트에 다시 연결 */
+function b64e(s){
+  try { return btoa(unescape(encodeURIComponent(String(s==null?'':s))))
+    .replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,''); }
+  catch(e){ return ''; }
+}
+function b64d(s){
+  try {
+    var t=String(s||'').replace(/-/g,'+').replace(/_/g,'/');
+    while(t.length%4) t+='=';
+    return decodeURIComponent(escape(atob(t)));
+  } catch(e){ return ''; }
+}
+function readConnHash(){
+  var m=String(location.hash||'').match(/[#&]s=([^&]+)/);
+  if(!m) return '';
+  var raw='';
+  try{ raw=decodeURIComponent(m[1]); }catch(e){ raw=m[1]; }
+  var v=b64d(raw);
+  if(!/^https?:\/\//i.test(v) && /^https?:\/\//i.test(raw)) v=raw;
+  return /^https?:\/\//i.test(v)?v:'';
+}
+function copyPageLink(){
+  var u=sheetUrl();
+  if(classifyUrl(u).kind!=='ok'){ setUrlHint('주소를 먼저 저장해 주세요.','bad'); toast('주소를 먼저 저장해 주세요'); return; }
+  var link=location.origin+location.pathname+'#s='+b64e(u);
+  function done(){ setUrlHint('이 페이지 링크를 복사했습니다. 즐겨찾기에 넣어 두면 공용 PC에서도 한 번에 연결됩니다.','good'); toast('링크를 복사했어요'); }
+  function fallback(){ try{ window.prompt('아래 링크를 복사하세요',link); }catch(e){} }
+  if(navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(link).then(done,fallback);
+  else fallback();
+}
+(function applyHashConn(){
+  var v=readConnHash();
+  if(!v) return;
+  var info=classifyUrl(v);
+  if(info.kind!=='ok') return;
+  storeUrl(info.url);
+  try{ history.replaceState(null,'',location.pathname+location.search); }catch(e){}
+})();
+
 loadState();
 setEditMode(false);   /* 새로 고치면 항상 읽기 전용에서 시작 */
 applySimLock();       /* 시뮬레이터도 항상 잠긴 상태에서 시작 */
